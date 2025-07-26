@@ -1,0 +1,259 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Layout from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { 
+  Plus, 
+  Building, 
+  Calendar,
+  MapPin,
+  FileImage,
+  Activity
+} from "lucide-react";
+import type { Project, InsertProject } from "@shared/schema";
+
+export default function Projects() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newProject, setNewProject] = useState<InsertProject>({
+    name: "",
+    address: "",
+    status: "active",
+  });
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["/api/projects"],
+  });
+
+  const createProjectMutation = useMutation({
+    mutationFn: (projectData: InsertProject) =>
+      apiRequest("/api/projects", {
+        method: "POST",
+        body: JSON.stringify(projectData),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Project created",
+        description: "New project has been created successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setIsCreateDialogOpen(false);
+      setNewProject({ name: "", address: "", status: "active" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create project",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateProject = () => {
+    if (!newProject.name.trim()) {
+      toast({
+        title: "Project name required",
+        description: "Please enter a project name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createProjectMutation.mutate(newProject);
+  };
+
+  return (
+    <Layout>
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
+            <p className="text-slate-600 mt-1">Manage your construction projects and takeoffs</p>
+          </div>
+          
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blueprint-600 hover:bg-blueprint-700">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="project-name">Project Name</Label>
+                  <Input
+                    id="project-name"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                    placeholder="Enter project name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="project-address">Address</Label>
+                  <Input
+                    id="project-address"
+                    value={newProject.address || ""}
+                    onChange={(e) => setNewProject({ ...newProject, address: e.target.value })}
+                    placeholder="Enter project address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="project-status">Status</Label>
+                  <select
+                    id="project-status"
+                    value={newProject.status}
+                    onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  >
+                    <option value="active">Active</option>
+                    <option value="on-hold">On Hold</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div className="flex space-x-2 pt-4">
+                  <Button
+                    onClick={handleCreateProject}
+                    disabled={createProjectMutation.isPending}
+                    className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
+                  >
+                    {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCreateDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Projects Grid */}
+      <div className="p-6">
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-slate-200 rounded mb-2"></div>
+                  <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-20 bg-slate-200 rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project: Project) => (
+              <Card key={project.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Building className="w-5 h-5 text-blueprint-600" />
+                      <span className="text-lg">{project.name}</span>
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={
+                        project.status === "active" 
+                          ? "bg-green-100 text-green-700"
+                          : project.status === "on-hold"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-slate-100 text-slate-700"
+                      }
+                    >
+                      {project.status}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {project.address && (
+                    <div className="flex items-center space-x-2 text-sm text-slate-600">
+                      <MapPin className="w-4 h-4" />
+                      <span>{project.address}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center space-x-2 text-sm text-slate-600">
+                    <Calendar className="w-4 h-4" />
+                    <span>Created {new Date(project.createdAt || "").toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <FileImage className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div className="text-sm font-medium text-slate-900">3</div>
+                      <div className="text-xs text-slate-500">Drawings</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <Activity className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div className="text-sm font-medium text-slate-900">85%</div>
+                      <div className="text-xs text-slate-500">Processed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <Building className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div className="text-sm font-medium text-slate-900">$247K</div>
+                      <div className="text-xs text-slate-500">Estimated</div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full mt-4 bg-blueprint-600 hover:bg-blueprint-700"
+                    onClick={() => window.location.href = `/?project=${project.id}`}
+                  >
+                    Open Project
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {!isLoading && projects.length === 0 && (
+          <div className="text-center py-12">
+            <Building className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 mb-2">No Projects Yet</h3>
+            <p className="text-slate-600 mb-6">Create your first construction project to get started with AI takeoffs.</p>
+            <Button 
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-blueprint-600 hover:bg-blueprint-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create First Project
+            </Button>
+          </div>
+        )}
+      </div>
+    </Layout>
+  );
+}
