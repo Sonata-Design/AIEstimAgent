@@ -15,8 +15,9 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { insertProjectSchema, type Project, type Drawing, type Takeoff } from "@shared/schema";
+import TakeoffTypeSelector from "@/components/takeoff-type-selector";
 
-const editProjectSchema = insertProjectSchema.omit({ id: true });
+const editProjectSchema = insertProjectSchema;
 
 export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
@@ -321,6 +322,36 @@ export default function ProjectDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Takeoff Type Selection */}
+          {drawings.length > 0 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold">Run AI Takeoff Analysis</h2>
+              <p className="text-muted-foreground">
+                Select which building elements you want to detect and measure in your drawings.
+              </p>
+              {drawings.map((drawing) => (
+                <div key={drawing.id} className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium">{drawing.filename}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Select takeoff types for this drawing
+                      </p>
+                    </div>
+                  </div>
+                  <TakeoffTypeSelector 
+                    drawing={drawing}
+                    onComplete={() => {
+                      // Refresh takeoffs data
+                      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "takeoffs"] });
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Project Stats Sidebar */}

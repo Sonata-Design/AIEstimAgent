@@ -33,7 +33,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </Link>
 
-            <div className="hidden md:flex items-center space-x-1 ml-8">
+            <div className="hidden md:flex items-center space-x-1 ml-6">
               <Link href="/">
                 <Button variant="ghost" size="sm" className={location === "/" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
                   <Home className="w-4 h-4 mr-2" />

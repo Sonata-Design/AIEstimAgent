@@ -103,6 +103,9 @@ Preferred communication style: Simple, everyday language.
 - **Persistent Storage**: All project data, drawings, takeoffs, and material costs now persist in the database
 - **Settings Page**: Added comprehensive settings interface for user preferences, notifications, AI configuration, and security
 - **Sample Data**: Automatic initialization of sample construction data on first run
+- **Calculator Tool Removal**: Removed the calculator widget from the navigation header to improve UI spacing
+- **Takeoff Type Selection**: Added comprehensive takeoff type selector allowing users to choose specific building elements (doors, windows, flooring, walls, electrical, plumbing, HVAC, structural) for AI analysis
+- **Selective AI Analysis**: Implemented backend API for running takeoff analysis on specific element types rather than all elements at once
 
 ### Current Limitations
 - Local file storage (not suitable for distributed deployment)

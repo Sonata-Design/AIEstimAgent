@@ -229,6 +229,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Run selective takeoff
+  app.post("/api/drawings/:id/run-takeoff", async (req, res) => {
+    try {
+      const drawing = await storage.getDrawing(req.params.id);
+      if (!drawing) {
+        return res.status(404).json({ message: "Drawing not found" });
+      }
+
+      const { elementTypes } = req.body;
+      if (!elementTypes || !Array.isArray(elementTypes)) {
+        return res.status(400).json({ message: "elementTypes array is required" });
+      }
+
+      await storage.updateDrawing(req.params.id, {
+        status: "processing",
+      });
+
+      // Simulate AI processing with selective takeoffs
+      setTimeout(async () => {
+        await storage.updateDrawing(req.params.id, {
+          status: "complete",
+          aiProcessed: true,
+        });
+        
+        await generateSelectiveMockTakeoffs(req.params.id, elementTypes);
+      }, 2000);
+
+      res.json({ message: "Selective takeoff analysis started", elementTypes });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start takeoff analysis" });
+    }
+  });
+
   // Serve uploaded files
   app.use("/uploads", (req, res, next) => {
     const filePath = path.join(uploadDir, req.path);
@@ -243,6 +276,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
+// Helper function to generate selective mock takeoff data
+async function generateSelectiveMockTakeoffs(drawingId: string, elementTypes: string[]) {
+  const storage = getStorage() as IStorage;
+  const takeoffTemplates = {
+    doors: [
+      {
+        elementType: "doors",
+        elementName: "Interior Door - 36\" x 80\"",
+        itemType: "Interior Door",
+        quantity: 5,
+        width: 36,
+        height: 80,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 330,
+        totalCost: 1650,
+        coordinates: { x: 100, y: 150 },
+      },
+      {
+        elementType: "doors",
+        elementName: "Interior Door - 32\" x 80\"",
+        itemType: "Interior Door",
+        quantity: 2,
+        width: 32,
+        height: 80,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 310,
+        totalCost: 620,
+        coordinates: { x: 200, y: 250 },
+      }
+    ],
+    windows: [
+      {
+        elementType: "windows",
+        elementName: "Double Hung Window - 48\" x 60\"",
+        itemType: "Double Hung Window",
+        quantity: 8,
+        width: 48,
+        height: 60,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 550,
+        totalCost: 4400,
+        coordinates: { x: 300, y: 100 },
+      }
+    ],
+    flooring: [
+      {
+        elementType: "flooring",
+        elementName: "Hardwood Flooring",
+        itemType: "Hardwood",
+        quantity: 1845,
+        area: 1845,
+        unit: "sq ft",
+        detectedByAi: true,
+        costPerUnit: 14.5,
+        totalCost: 26752.5,
+        coordinates: { x: 400, y: 300 },
+      },
+      {
+        elementType: "flooring",
+        elementName: "Ceramic Tile",
+        itemType: "Tile",
+        quantity: 632,
+        area: 632,
+        unit: "sq ft",
+        detectedByAi: true,
+        costPerUnit: 12.0,
+        totalCost: 7584,
+        coordinates: { x: 450, y: 350 },
+      }
+    ],
+    walls: [
+      {
+        elementType: "walls",
+        elementName: "Interior Walls",
+        itemType: "Drywall",
+        quantity: 2400,
+        area: 2400,
+        length: 240,
+        unit: "sq ft",
+        detectedByAi: true,
+        costPerUnit: 3.5,
+        totalCost: 8400,
+        coordinates: { x: 100, y: 500 },
+      }
+    ],
+    electrical: [
+      {
+        elementType: "electrical",
+        elementName: "Electrical Outlets",
+        itemType: "Outlet",
+        quantity: 24,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 85,
+        totalCost: 2040,
+        coordinates: { x: 150, y: 400 },
+      },
+      {
+        elementType: "electrical",
+        elementName: "Light Fixtures",
+        itemType: "Light Fixture",
+        quantity: 16,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 150,
+        totalCost: 2400,
+        coordinates: { x: 250, y: 200 },
+      }
+    ],
+    plumbing: [
+      {
+        elementType: "plumbing",
+        elementName: "Plumbing Fixtures",
+        itemType: "Fixture",
+        quantity: 8,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 250,
+        totalCost: 2000,
+        coordinates: { x: 500, y: 300 },
+      }
+    ],
+    hvac: [
+      {
+        elementType: "hvac",
+        elementName: "HVAC System",
+        itemType: "System",
+        quantity: 1,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 8500,
+        totalCost: 8500,
+        coordinates: { x: 400, y: 50 },
+      }
+    ],
+    structural: [
+      {
+        elementType: "structural",
+        elementName: "Support Beams",
+        itemType: "Beam",
+        quantity: 12,
+        length: 20,
+        unit: "linear ft",
+        detectedByAi: true,
+        costPerUnit: 45,
+        totalCost: 10800,
+        coordinates: { x: 300, y: 600 },
+      }
+    ]
+  };
+
+  const takeoffsToCreate = [];
+  for (const elementType of elementTypes) {
+    const templates = takeoffTemplates[elementType as keyof typeof takeoffTemplates];
+    if (templates) {
+      takeoffsToCreate.push(...templates.map(template => ({
+        ...template,
+        drawingId
+      })));
+    }
+  }
+
+  for (const takeoff of takeoffsToCreate) {
+    await storage.createTakeoff(takeoff);
+  }
+}
+
 // Helper function to generate mock takeoff data
 async function generateMockTakeoffs(drawingId: string) {
   const mockTakeoffs = [
@@ -250,6 +453,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "doors",
       elementName: "Interior Door (36\")",
+      itemType: "Interior Door",
       quantity: 5,
       unit: "each",
       detectedByAi: true,
@@ -261,6 +465,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "doors",
       elementName: "Interior Door (32\")",
+      itemType: "Interior Door",
       quantity: 2,
       unit: "each",
       detectedByAi: true,
@@ -272,6 +477,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "windows",
       elementName: "Double Hung Window (3'x4')",
+      itemType: "Double Hung Window",
       quantity: 8,
       unit: "each",
       detectedByAi: true,
@@ -283,6 +489,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "flooring",
       elementName: "Hardwood",
+      itemType: "Hardwood Flooring",
       area: 1845,
       unit: "sq ft",
       detectedByAi: true,
@@ -294,6 +501,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "flooring",
       elementName: "Tile",
+      itemType: "Ceramic Tile",
       area: 632,
       unit: "sq ft",
       detectedByAi: true,
@@ -305,6 +513,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "electrical",
       elementName: "Outlets",
+      itemType: "Electrical Outlet",
       quantity: 24,
       unit: "each",
       detectedByAi: true,
@@ -316,6 +525,7 @@ async function generateMockTakeoffs(drawingId: string) {
       drawingId,
       elementType: "electrical",
       elementName: "Light Fixtures",
+      itemType: "Light Fixture",
       quantity: 16,
       unit: "each",
       detectedByAi: true,
