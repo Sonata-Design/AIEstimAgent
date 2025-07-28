@@ -108,16 +108,112 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Toolbar */}
-          <div className="bg-white border-b border-slate-200 p-4">
+          {/* Project Actions Bar */}
+          <div className="bg-white border-b border-slate-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <h1 className="text-xl font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {currentProject?.name || "No Project Selected"}
+                </h2>
+                {currentProject && (
+                  <span className="text-sm text-slate-500">
+                    {drawings.length} drawing{drawings.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-blueprint-600 hover:bg-blueprint-700" size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Project
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Project</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="dashboard-project-name">Project Name</Label>
+                      <Input
+                        id="dashboard-project-name"
+                        value={newProject.name}
+                        onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                        placeholder="Enter project name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="dashboard-project-location">Location</Label>
+                      <Input
+                        id="dashboard-project-location"
+                        value={newProject.location || ""}
+                        onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
+                        placeholder="Enter project location"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="dashboard-project-client">Client</Label>
+                      <Input
+                        id="dashboard-project-client"
+                        value={newProject.client || ""}
+                        onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
+                        placeholder="Enter client name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="dashboard-project-description">Description</Label>
+                      <Input
+                        id="dashboard-project-description"
+                        value={newProject.description || ""}
+                        onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                        placeholder="Enter project description"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="dashboard-project-status">Status</Label>
+                      <select
+                        id="dashboard-project-status"
+                        value={newProject.status}
+                        onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                      >
+                        <option value="active">Active</option>
+                        <option value="on-hold">On Hold</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+                    <div className="flex space-x-2 pt-4">
+                      <Button
+                        onClick={handleCreateProject}
+                        disabled={createProjectMutation.isPending}
+                        className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
+                      >
+                        {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsCreateDialogOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Drawing Toolbar */}
+          <div className="bg-slate-50 border-b border-slate-200 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <h3 className="text-sm font-medium text-slate-900">
                   {selectedDrawing?.name || "Select a drawing"}
-                </h1>
+                </h3>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-slate-500">Scale:</span>
-                  <select className="text-sm border border-slate-300 rounded px-2 py-1">
+                  <span className="text-xs text-slate-500">Scale:</span>
+                  <select className="text-xs border border-slate-300 rounded px-2 py-1">
                     <option>1/4" = 1'</option>
                     <option>1/8" = 1'</option>
                     <option>1/2" = 1'</option>
@@ -126,93 +222,12 @@ export default function Dashboard() {
               </div>
               
               <div className="flex items-center space-x-3">
-                {/* New Project Button */}
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-blueprint-600 hover:bg-blueprint-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      New Project
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Project</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="dashboard-project-name">Project Name</Label>
-                        <Input
-                          id="dashboard-project-name"
-                          value={newProject.name}
-                          onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                          placeholder="Enter project name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="dashboard-project-location">Location</Label>
-                        <Input
-                          id="dashboard-project-location"
-                          value={newProject.location || ""}
-                          onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
-                          placeholder="Enter project location"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="dashboard-project-client">Client</Label>
-                        <Input
-                          id="dashboard-project-client"
-                          value={newProject.client || ""}
-                          onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
-                          placeholder="Enter client name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="dashboard-project-description">Description</Label>
-                        <Input
-                          id="dashboard-project-description"
-                          value={newProject.description || ""}
-                          onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                          placeholder="Enter project description"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="dashboard-project-status">Status</Label>
-                        <select
-                          id="dashboard-project-status"
-                          value={newProject.status}
-                          onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                        >
-                          <option value="active">Active</option>
-                          <option value="on-hold">On Hold</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                      </div>
-                      <div className="flex space-x-2 pt-4">
-                        <Button
-                          onClick={handleCreateProject}
-                          disabled={createProjectMutation.isPending}
-                          className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
-                        >
-                          {createProjectMutation.isPending ? "Creating..." : "Create Project"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsCreateDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
                 {/* View Controls */}
-                <div className="flex items-center bg-slate-100 rounded-lg p-1">
-                  <Button variant="ghost" size="sm" className="bg-white text-slate-900 shadow-sm">
+                <div className="flex items-center bg-white rounded-lg p-1 border">
+                  <Button variant="ghost" size="sm" className="bg-blueprint-50 text-blueprint-700 text-xs">
                     View
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-slate-600">
+                  <Button variant="ghost" size="sm" className="text-slate-600 text-xs">
                     Annotate
                   </Button>
                 </div>
@@ -231,7 +246,7 @@ export default function Dashboard() {
                 </div>
                 
                 {/* Export */}
-                <Button className="bg-green-600 hover:bg-green-700">
+                <Button className="bg-green-600 hover:bg-green-700" size="sm">
                   <Download className="w-4 h-4 mr-2" />
                   Export Report
                 </Button>

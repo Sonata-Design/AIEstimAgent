@@ -23,7 +23,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center">
             <Link href="/">
               <div className="flex items-center space-x-2 cursor-pointer">
                 <div className="w-8 h-8 bg-blueprint-600 rounded-lg flex items-center justify-center">
@@ -32,27 +32,28 @@ export default function Layout({ children }: LayoutProps) {
                 <span className="text-xl font-bold text-slate-900">EstimAgent</span>
               </div>
             </Link>
+          </div>
 
-            <div className="hidden md:flex items-center space-x-1 ml-6">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className={location === "/" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
-                  <Home className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Link href="/projects">
-                <Button variant="ghost" size="sm" className={location === "/projects" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
-                  <Folder className="w-4 h-4 mr-2" />
-                  Projects
-                </Button>
-              </Link>
-              <Link href="/reports">
-                <Button variant="ghost" size="sm" className={location === "/reports" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Reports
-                </Button>
-              </Link>
-            </div>
+          {/* Centered Navigation */}
+          <div className="hidden md:flex items-center space-x-1">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className={location === "/" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
+                <Home className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+            </Link>
+            <Link href="/projects">
+              <Button variant="ghost" size="sm" className={location === "/projects" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
+                <Folder className="w-4 h-4 mr-2" />
+                Projects
+              </Button>
+            </Link>
+            <Link href="/reports">
+              <Button variant="ghost" size="sm" className={location === "/reports" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Reports
+              </Button>
+            </Link>
           </div>
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm" className="relative">
