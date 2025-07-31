@@ -4,6 +4,7 @@ import Layout from "@/components/layout";
 import ProjectSidebar from "@/components/project-sidebar";
 import DrawingViewer from "@/components/drawing-viewer";
 import TakeoffPanel from "@/components/takeoff-panel";
+import TakeoffTypeSelector from "@/components/takeoff-type-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,8 @@ import {
   Ruler,
   Square,
   Hash,
-  Plus
+  Plus,
+  Brain
 } from "lucide-react";
 import type { Project, Drawing, InsertProject } from "@shared/schema";
 
@@ -30,6 +32,7 @@ export default function Dashboard() {
   const [selectedDrawing, setSelectedDrawing] = useState<Drawing | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isTakeoffDialogOpen, setIsTakeoffDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState<InsertProject>({
     name: "",
     description: "",
@@ -232,7 +235,32 @@ export default function Dashboard() {
                   </Button>
                 </div>
                 
-                {/* Measurement Tools */}
+                {/* AI Takeoff Button */}
+                <Dialog open={isTakeoffDialogOpen} onOpenChange={setIsTakeoffDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="bg-purple-600 hover:bg-purple-700" 
+                      size="sm"
+                      disabled={!selectedDrawing}
+                    >
+                      <Brain className="w-4 h-4 mr-2" />
+                      Run AI Takeoff
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>AI Takeoff Analysis</DialogTitle>
+                    </DialogHeader>
+                    {selectedDrawing && (
+                      <TakeoffTypeSelector 
+                        drawing={selectedDrawing} 
+                        onComplete={() => setIsTakeoffDialogOpen(false)}
+                      />
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                {/* Manual Measurement Tools */}
                 <div className="flex items-center space-x-1 border-l border-slate-300 pl-3">
                   <Button variant="ghost" size="sm" title="Linear measurement">
                     <Ruler className="w-4 h-4" />
