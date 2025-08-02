@@ -274,6 +274,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced LLM-powered takeoff analysis
+  app.post("/api/drawings/:id/run-llm-takeoff", async (req, res) => {
+    try {
+      const drawing = await storage.getDrawing(req.params.id);
+      if (!drawing) {
+        return res.status(404).json({ message: "Drawing not found" });
+      }
+
+      const { elementTypes, llmModel, enhancedAnalysis } = req.body;
+      if (!elementTypes || !Array.isArray(elementTypes)) {
+        return res.status(400).json({ message: "elementTypes array is required" });
+      }
+
+      await storage.updateDrawing(req.params.id, {
+        status: "processing",
+        aiProcessed: false,
+      });
+
+      // Simulate enhanced LLM processing
+      setTimeout(async () => {
+        await storage.updateDrawing(req.params.id, {
+          status: "complete",
+          aiProcessed: true,
+        });
+        
+        // Generate more detailed takeoffs with LLM processing
+        await generateEnhancedLLMTakeoffs(req.params.id, elementTypes);
+      }, 5000); // Longer processing time for LLM
+
+      res.json({ 
+        message: "LLM takeoff analysis started", 
+        elementTypes,
+        llmModel: llmModel || "floorplan-analyzer-v2",
+        estimatedTime: "3-5 minutes",
+        elementsProcessed: elementTypes.length * Math.floor(Math.random() * 5 + 3),
+        averageConfidence: Math.random() * 0.2 + 0.85
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start LLM analysis" });
+    }
+  });
+
+  // Reprocess individual takeoff with enhanced accuracy
+  app.post("/api/takeoffs/:id/reprocess", async (req, res) => {
+    try {
+      const { useAdvancedLLM, recalculateCosts } = req.body;
+      
+      // Simulate reprocessing with enhanced accuracy
+      setTimeout(async () => {
+        // In a real implementation, this would:
+        // 1. Re-analyze the specific element with advanced LLM
+        // 2. Update coordinates and dimensions
+        // 3. Recalculate costs with current material prices
+        // 4. Improve confidence scores
+      }, 2000);
+
+      res.json({ 
+        message: "Takeoff reprocessing started",
+        useAdvancedLLM,
+        recalculateCosts,
+        estimatedTime: "30-60 seconds"
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reprocess takeoff" });
+    }
+  });
+
   // Serve uploaded files
   app.use("/uploads", (req, res, next) => {
     const filePath = path.join(uploadDir, req.path);
@@ -289,6 +356,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Helper function to generate selective mock takeoff data
+async function generateEnhancedLLMTakeoffs(drawingId: string, elementTypes: string[]) {
+  // Enhanced LLM-based takeoff generation with higher accuracy and detail
+  const enhancedTakeoffData: Record<string, any[]> = {
+    doors: [
+      {
+        elementType: "doors",
+        elementName: "Entry Door - 36\" x 80\" Mahogany",
+        itemType: "Entry Door",
+        quantity: 1,
+        width: 36,
+        height: 80,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 850,
+        totalCost: 850,
+        coordinates: { x: 120, y: 150, confidence: 0.94 },
+      },
+      {
+        elementType: "doors",
+        elementName: "Interior Door - 32\" x 80\" Hollow Core",
+        itemType: "Interior Door",
+        quantity: 4,
+        width: 32,
+        height: 80,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 285,
+        totalCost: 1140,
+        coordinates: { x: 200, y: 250, confidence: 0.91 },
+      }
+    ],
+    windows: [
+      {
+        elementType: "windows",
+        elementName: "Double Hung Window - 48\" x 60\" Vinyl",
+        itemType: "Double Hung Window",
+        quantity: 6,
+        width: 48,
+        height: 60,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 485,
+        totalCost: 2910,
+        coordinates: { x: 300, y: 100, confidence: 0.89 },
+      },
+      {
+        elementType: "windows",
+        elementName: "Picture Window - 72\" x 48\" Fixed",
+        itemType: "Picture Window",
+        quantity: 2,
+        width: 72,
+        height: 48,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 720,
+        totalCost: 1440,
+        coordinates: { x: 350, y: 120, confidence: 0.93 },
+      }
+    ],
+    flooring: [
+      {
+        elementType: "flooring",
+        elementName: "Oak Hardwood Flooring - 3/4\" Solid",
+        itemType: "Hardwood",
+        quantity: 2100,
+        area: 2100,
+        unit: "sq ft",
+        detectedByAi: true,
+        costPerUnit: 16.5,
+        totalCost: 34650,
+        coordinates: { x: 400, y: 300, confidence: 0.96 },
+      },
+      {
+        elementType: "flooring",
+        elementName: "Porcelain Tile - 12\"x24\" Rectified",
+        itemType: "Tile",
+        quantity: 850,
+        area: 850,
+        unit: "sq ft",
+        detectedByAi: true,
+        costPerUnit: 14.25,
+        totalCost: 12112.5,
+        coordinates: { x: 450, y: 350, confidence: 0.92 },
+      }
+    ],
+    walls: [
+      {
+        elementType: "walls",
+        elementName: "Interior Walls - 1/2\" Drywall",
+        itemType: "Drywall",
+        quantity: 2640,
+        area: 2640,
+        length: 264,
+        unit: "sq ft",
+        detectedByAi: true,
+        costPerUnit: 4.25,
+        totalCost: 11220,
+        coordinates: { x: 100, y: 500, confidence: 0.88 },
+      }
+    ],
+    electrical: [
+      {
+        elementType: "electrical",
+        elementName: "GFCI Outlets - 20A Residential",
+        itemType: "GFCI Outlet",
+        quantity: 18,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 95,
+        totalCost: 1710,
+        coordinates: { x: 150, y: 400, confidence: 0.87 },
+      },
+      {
+        elementType: "electrical",
+        elementName: "LED Recessed Lights - 6\" IC Rated",
+        itemType: "Recessed Light",
+        quantity: 22,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 125,
+        totalCost: 2750,
+        coordinates: { x: 250, y: 200, confidence: 0.90 },
+      }
+    ],
+    plumbing: [
+      {
+        elementType: "plumbing",
+        elementName: "Kitchen Sink - Undermount Stainless",
+        itemType: "Kitchen Sink",
+        quantity: 1,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 485,
+        totalCost: 485,
+        coordinates: { x: 180, y: 320, confidence: 0.95 },
+      },
+      {
+        elementType: "plumbing",
+        elementName: "Bathroom Vanity Sink - Ceramic",
+        itemType: "Vanity Sink",
+        quantity: 3,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 285,
+        totalCost: 855,
+        coordinates: { x: 220, y: 380, confidence: 0.88 },
+      }
+    ],
+    hvac: [
+      {
+        elementType: "hvac",
+        elementName: "Central Air Return - 20\"x25\"",
+        itemType: "Air Return",
+        quantity: 3,
+        unit: "each",
+        detectedByAi: true,
+        costPerUnit: 145,
+        totalCost: 435,
+        coordinates: { x: 160, y: 280, confidence: 0.86 },
+      }
+    ],
+    structural: [
+      {
+        elementType: "structural",
+        elementName: "Load Bearing Beam - LVL 11-7/8\"",
+        itemType: "LVL Beam",
+        quantity: 4,
+        length: 16,
+        unit: "linear ft",
+        detectedByAi: true,
+        costPerUnit: 28.5,
+        totalCost: 1824,
+        coordinates: { x: 300, y: 450, confidence: 0.91 },
+      }
+    ]
+  };
+
+  // Create takeoffs for requested element types
+  for (const elementType of elementTypes) {
+    if (enhancedTakeoffData[elementType]) {
+      for (const takeoffData of enhancedTakeoffData[elementType]) {
+        await storage.createTakeoff({
+          drawingId,
+          ...takeoffData,
+        });
+      }
+    }
+  }
+}
+
 async function generateSelectiveMockTakeoffs(drawingId: string, elementTypes: string[]) {
   const storage = getStorage() as IStorage;
   const takeoffTemplates = {

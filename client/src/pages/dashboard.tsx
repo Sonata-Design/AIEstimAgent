@@ -5,6 +5,7 @@ import ProjectSidebar from "@/components/project-sidebar";
 import DrawingViewer from "@/components/drawing-viewer";
 import TakeoffPanel from "@/components/takeoff-panel";
 import TakeoffTypeSelector from "@/components/takeoff-type-selector";
+import LLMTakeoffProcessor from "@/components/llm-takeoff-processor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -286,8 +287,30 @@ export default function Dashboard() {
             {/* Drawing Viewer */}
             <DrawingViewer drawing={selectedDrawing} />
 
-            {/* Takeoff Results Panel */}
-            <TakeoffPanel drawing={selectedDrawing} />
+            {/* Enhanced LLM Takeoff Panel */}
+            <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+              <div className="p-4 border-b border-slate-200">
+                <h2 className="text-lg font-semibold text-slate-900">AI Takeoff Analysis</h2>
+                <p className="text-sm text-slate-600">Advanced LLM-powered floorplan analysis</p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {selectedDrawing ? (
+                  <LLMTakeoffProcessor 
+                    drawing={selectedDrawing} 
+                    onAnalysisComplete={() => {
+                      // Refresh takeoff data after analysis
+                    }}
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <Brain className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <p className="text-sm text-slate-600">Select a drawing to begin AI analysis</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </main>
       </div>
