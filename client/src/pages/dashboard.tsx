@@ -1,113 +1,66 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import Layout from "@/components/layout";
-import ProjectSidebar from "@/components/project-sidebar";
 import DrawingViewer from "@/components/drawing-viewer";
-import TakeoffPanel from "@/components/takeoff-panel";
-import TakeoffTypeSelector from "@/components/takeoff-type-selector";
+import VerticalTakeoffSelector from "@/components/vertical-takeoff-selector";
 import LLMTakeoffProcessor from "@/components/llm-takeoff-processor";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { 
-  Settings,
   Download,
   Ruler,
   Square,
-  Hash,
-  Plus,
-  Brain
+  Hash
 } from "lucide-react";
-import type { Project, Drawing, InsertProject } from "@shared/schema";
+import type { Drawing } from "@shared/schema";
 
 export default function Dashboard() {
-  const [selectedDrawing, setSelectedDrawing] = useState<Drawing | null>(null);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isTakeoffDialogOpen, setIsTakeoffDialogOpen] = useState(false);
-  const [newProject, setNewProject] = useState<InsertProject>({
-    name: "",
-    description: "",
-    location: "",
-    client: "",
-    status: "active",
-  });
+  const [selectedTakeoffTypes, setSelectedTakeoffTypes] = useState<string[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const { toast } = useToast();
 
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ["/api/projects"],
-  });
-
-  const { data: drawings = [], isLoading: drawingsLoading } = useQuery({
-    queryKey: ["/api/projects", currentProject?.id, "drawings"],
-    enabled: !!currentProject?.id,
-  });
-
-  const createProjectMutation = useMutation({
-    mutationFn: (projectData: InsertProject) =>
-      apiRequest("/api/projects", "POST", projectData),
-    onSuccess: (newProject) => {
+  const handleRunAnalysis = () => {
+    if (selectedTakeoffTypes.length === 0) {
       toast({
-        title: "Project created",
-        description: "New project has been created successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setIsCreateDialogOpen(false);
-      setNewProject({ name: "", description: "", location: "", client: "", status: "active" });
-      setCurrentProject(newProject);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to create project",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleCreateProject = () => {
-    if (!newProject.name.trim()) {
-      toast({
-        title: "Project name required",
-        description: "Please enter a project name.",
+        title: "No takeoff types selected",
+        description: "Please select at least one element type to analyze.",
         variant: "destructive",
       });
       return;
     }
-    createProjectMutation.mutate(newProject);
+    
+    setIsAnalyzing(true);
+    // Simulate analysis process
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      toast({
+        title: "Analysis Complete",
+        description: `Successfully analyzed ${selectedTakeoffTypes.length} element types.`,
+      });
+    }, 5000);
   };
 
-  // Set first project as current if none selected
-  if (projects && projects.length > 0 && !currentProject) {
-    setCurrentProject(projects[0]);
-  }
-
-  // Set first drawing as selected if none selected
-  if (drawings && drawings.length > 0 && !selectedDrawing) {
-    setSelectedDrawing(drawings[0]);
-  }
+  // Use a sample drawing for demonstration
+  const sampleDrawing: Drawing = {
+    id: "sample-1",
+    projectId: "proj-1", 
+    name: "Ground Floor Plan",
+    filename: "ground-floor.pdf",
+    fileSize: 2048000,
+    uploadedAt: new Date().toISOString(),
+    status: "complete",
+    aiProcessed: true
+  };
 
   return (
     <Layout>
       <div className="flex h-[calc(100vh-73px)] overflow-hidden">
-        {/* Sidebar */}
-        <ProjectSidebar
-          currentProject={currentProject}
-          setCurrentProject={setCurrentProject}
-          drawings={drawings}
-          selectedDrawing={selectedDrawing}
-          setSelectedDrawing={setSelectedDrawing}
-          isLoading={projectsLoading || drawingsLoading}
+        {/* Vertical Takeoff Selector - Left Sidebar */}
+        <VerticalTakeoffSelector
+          selectedTypes={selectedTakeoffTypes}
+          onSelectionChange={setSelectedTakeoffTypes}
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isAnalyzing}
         />
 
         {/* Main Content */}
