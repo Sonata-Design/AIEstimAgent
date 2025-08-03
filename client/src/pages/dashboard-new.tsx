@@ -2,7 +2,8 @@ import { useState } from "react";
 import Layout from "@/components/layout";
 import DrawingViewer from "@/components/drawing-viewer";
 import VerticalTakeoffSelector from "@/components/vertical-takeoff-selector";
-import AIChatInterface from "@/components/ai-chat-interface";
+import AIChatWidget from "@/components/ai-chat-widget";
+import RealtimeAnalysisPanel from "@/components/realtime-analysis-panel";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -123,11 +124,17 @@ export default function Dashboard() {
             {/* Drawing Viewer */}
             <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
 
-            {/* AI Chat Interface */}
-            <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
-              <AIChatInterface />
-            </div>
+            {/* Real-time Analysis Panel */}
+            <RealtimeAnalysisPanel 
+              drawing={currentDrawing}
+              selectedTypes={selectedTakeoffTypes}
+              isAnalyzing={isAnalyzing}
+              onStartAnalysis={handleRunAnalysis}
+            />
           </div>
+
+          {/* AI Chat Widget - Top Right Corner */}
+          <AIChatWidget />
         </main>
       </div>
     </Layout>
