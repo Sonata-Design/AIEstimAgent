@@ -2,15 +2,14 @@ import { useState } from "react";
 import Layout from "@/components/layout";
 import DrawingViewer from "@/components/drawing-viewer";
 import VerticalTakeoffSelector from "@/components/vertical-takeoff-selector";
-import LLMTakeoffProcessor from "@/components/llm-takeoff-processor";
+import AIChatInterface from "@/components/ai-chat-interface";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Download,
   Ruler,
   Square,
-  Hash,
-  Upload
+  Hash
 } from "lucide-react";
 import type { Drawing } from "@shared/schema";
 
@@ -63,9 +62,6 @@ export default function Dashboard() {
           <div className="bg-white border-b border-slate-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  AI Takeoff Analysis Dashboard
-                </h2>
                 <span className="text-sm text-slate-500">
                   {currentDrawing?.name || "Upload a drawing to begin"}
                 </span>
@@ -127,29 +123,9 @@ export default function Dashboard() {
             {/* Drawing Viewer */}
             <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
 
-            {/* Enhanced LLM Takeoff Panel */}
+            {/* AI Chat Interface */}
             <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-slate-200">
-                <h2 className="text-lg font-semibold text-slate-900">Analysis Results</h2>
-                <p className="text-sm text-slate-600">AI-powered takeoff analysis</p>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {currentDrawing ? (
-                  <LLMTakeoffProcessor 
-                    drawing={currentDrawing} 
-                    onAnalysisComplete={() => {
-                      // Refresh takeoff data after analysis
-                    }}
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center">
-                      <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                      <p className="text-sm text-slate-600">Upload a drawing to view analysis results</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <AIChatInterface />
             </div>
           </div>
         </main>

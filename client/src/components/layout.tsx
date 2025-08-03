@@ -56,22 +56,8 @@ export default function Layout({ children }: LayoutProps) {
               </Button>
             </Link>
           </div>
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </Button>
-            <Link href="/settings">
-              <Button variant="ghost" size="sm" className={location === "/settings" ? "text-blueprint-700 bg-blueprint-50" : "text-slate-600 hover:text-blueprint-700"}>
-                <Settings className="w-4 h-4" />
-              </Button>
-            </Link>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-slate-600" />
-              </div>
-              <span className="text-sm font-medium text-slate-700">John Constructor</span>
-            </div>
+          <div className="flex items-center">
+            {/* Empty space for header balance */}
           </div>
         </div>
       </header>

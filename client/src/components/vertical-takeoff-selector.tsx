@@ -10,7 +10,8 @@ import {
   Wind, 
   Hammer,
   ArrowUpDown,
-  Maximize
+  Maximize,
+  Settings
 } from "lucide-react";
 
 interface TakeoffType {
@@ -188,7 +189,7 @@ export default function VerticalTakeoffSelector({
       </div>
 
       {/* Action Button */}
-      <div className="p-4 border-t border-slate-200">
+      <div className="p-4 border-t border-slate-200 space-y-3">
         <Button 
           onClick={onRunAnalysis}
           disabled={selectedTypes.length === 0 || isAnalyzing}
@@ -205,10 +206,20 @@ export default function VerticalTakeoffSelector({
         </Button>
         
         {selectedTypes.length === 0 && (
-          <p className="text-xs text-slate-500 text-center mt-2">
+          <p className="text-xs text-slate-500 text-center">
             Select at least one element type to analyze
           </p>
         )}
+
+        {/* Settings Button */}
+        <Button 
+          variant="outline" 
+          className="w-full text-slate-600 hover:text-slate-900"
+          onClick={() => window.location.href = '/settings'}
+        >
+          <Settings className="w-4 h-4 mr-2" />
+          Settings
+        </Button>
       </div>
     </div>
   );
