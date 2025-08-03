@@ -92,9 +92,11 @@ export default function RealtimeAnalysisPanel({
           s.id === step.id ? { ...s, status: 'complete', progress: 100 } : s
         ));
 
-        // Add results progressively
-        if (step.id === 'detection') {
-          generateResults();
+        // Add results after all steps complete
+        if (step.id === 'calculation') {
+          setTimeout(() => {
+            generateResults();
+          }, 500);
         }
       }
     };
@@ -233,13 +235,13 @@ export default function RealtimeAnalysisPanel({
           </div>
         )}
 
-        {/* Results */}
-        {results.length > 0 && (
-          <div className="p-4">
+        {/* Results - Only show after analysis is complete */}
+        {!isAnalyzing && results.length > 0 && (
+          <div className="p-4 animate-fade-in">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-slate-900">Takeoff Results</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Takeoff Results</h3>
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {results.length} categories analyzed
+                Analysis Complete
               </Badge>
             </div>
 
@@ -247,22 +249,28 @@ export default function RealtimeAnalysisPanel({
               {results.map((result, index) => {
                 const IconComponent = result.icon;
                 return (
-                  <Card key={index} className={`${result.color} border`}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <IconComponent className="w-4 h-4" />
-                          <span>{result.type}</span>
+                  <Card key={index} className={`${result.color} border shadow-sm hover:shadow-md transition-shadow`}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 rounded-lg bg-white/80">
+                            <IconComponent className="w-5 h-5" />
+                          </div>
+                          <span className="font-semibold">{result.type}</span>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {result.count} {result.unit}
-                        </Badge>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-slate-900">{result.count}</div>
+                          <div className="text-xs text-slate-600 uppercase tracking-wide">{result.unit}</div>
+                        </div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {result.details.map((detail, i) => (
-                          <p key={i} className="text-xs text-slate-600">• {detail}</p>
+                          <div key={i} className="flex items-center text-sm text-slate-700">
+                            <div className="w-2 h-2 bg-slate-400 rounded-full mr-3 flex-shrink-0"></div>
+                            <span>{detail}</span>
+                          </div>
                         ))}
                       </div>
                     </CardContent>
@@ -271,10 +279,27 @@ export default function RealtimeAnalysisPanel({
               })}
             </div>
 
+            {/* Summary Stats */}
+            <div className="mt-6 p-4 bg-slate-50 rounded-lg border">
+              <h4 className="text-sm font-medium text-slate-900 mb-3">Analysis Summary</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-slate-600">Categories:</span>
+                  <span className="ml-2 font-medium">{results.length}</span>
+                </div>
+                <div>
+                  <span className="text-slate-600">Total Items:</span>
+                  <span className="ml-2 font-medium">
+                    {results.reduce((sum, r) => sum + r.count, 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Export Button */}
-            <Button className="w-full mt-4 bg-green-600 hover:bg-green-700">
+            <Button className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white shadow-sm">
               <Download className="w-4 h-4 mr-2" />
-              Export Results
+              Export Detailed Report
             </Button>
           </div>
         )}
