@@ -22,28 +22,54 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   const handleRunAnalysis = () => {
-    if (selectedTakeoffTypes.length === 0) {
+    // Use default types if none selected
+    const typesToAnalyze = selectedTakeoffTypes.length > 0 
+      ? selectedTakeoffTypes 
+      : ['doors', 'windows', 'flooring', 'electrical'];
+    
+    if (typesToAnalyze.length === 0) {
       toast({
-        title: "No takeoff types selected",
-        description: "Please select at least one element type to analyze.",
+        title: "No takeoff types available",
+        description: "Unable to start analysis without element types.",
         variant: "destructive",
       });
       return;
     }
     
     setIsAnalyzing(true);
+    
+    // Update selected types if we're using defaults
+    if (selectedTakeoffTypes.length === 0) {
+      setSelectedTakeoffTypes(typesToAnalyze);
+    }
+    
     // Simulate analysis process
     setTimeout(() => {
       setIsAnalyzing(false);
       toast({
         title: "Analysis Complete",
-        description: `Successfully analyzed ${selectedTakeoffTypes.length} element types.`,
+        description: `Successfully analyzed ${typesToAnalyze.length} element types.`,
       });
-    }, 5000);
+    }, 8000); // Longer duration to show the progress steps
   };
 
   const handleFileUpload = (drawing: Drawing) => {
     setCurrentDrawing(drawing);
+    
+    // Auto-select common takeoff types if none are selected
+    if (selectedTakeoffTypes.length === 0) {
+      setSelectedTakeoffTypes(['doors', 'windows', 'flooring', 'electrical']);
+    }
+    
+    // Automatically start analysis after a brief delay
+    setTimeout(() => {
+      handleRunAnalysis();
+    }, 1000);
+    
+    toast({
+      title: "File uploaded successfully",
+      description: "Starting automatic AI analysis...",
+    });
   };
 
   return (

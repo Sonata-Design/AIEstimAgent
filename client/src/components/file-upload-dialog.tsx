@@ -76,7 +76,11 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
     });
 
     if (validFiles.length > 0) {
-      setUploadedFiles(prev => [...prev, ...validFiles]);
+      setUploadedFiles(validFiles);
+      // Automatically process files after upload
+      setTimeout(() => {
+        processFilesImmediately(validFiles);
+      }, 500);
     }
   };
 
@@ -86,12 +90,15 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
 
   const processFiles = async () => {
     if (uploadedFiles.length === 0) return;
-    
+    processFilesImmediately(uploadedFiles);
+  };
+
+  const processFilesImmediately = async (filesToProcess: File[]) => {
     setIsUploading(true);
     
     // Simulate file processing
     setTimeout(() => {
-      const firstFile = uploadedFiles[0];
+      const firstFile = filesToProcess[0];
       const mockDrawing: Drawing = {
         id: `drawing-${Date.now()}`,
         projectId: "proj-1",
@@ -105,12 +112,7 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
       
       setIsUploading(false);
       onFileUpload(mockDrawing);
-      
-      toast({
-        title: "File uploaded successfully",
-        description: `${firstFile.name} is ready for analysis.`,
-      });
-    }, 2000);
+    }, 1500);
   };
 
   const getFileIcon = (file: File) => {
