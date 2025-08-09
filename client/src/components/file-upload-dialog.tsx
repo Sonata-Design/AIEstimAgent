@@ -107,6 +107,7 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
         fileUrl: `/uploads/${firstFile.name}`, // Mock file URL
         fileType: firstFile.type,
         status: "complete",
+        scale: "1/4\" = 1'",
         aiProcessed: true,
         uploadedAt: new Date(),
         createdAt: new Date(),

@@ -101,6 +101,7 @@ export default function Dashboard() {
         fileUrl: drawing.fileUrl,
         fileType: drawing.fileType,
         status: "complete",
+        scale: drawing.scale || "1/4\" = 1'",
         aiProcessed: true,
       };
       
@@ -122,9 +123,10 @@ export default function Dashboard() {
         description: "Starting automatic AI analysis...",
       });
     } catch (error) {
+      console.error("File upload error:", error);
       toast({
         title: "Upload failed",
-        description: "Failed to create project or upload drawing",
+        description: error instanceof Error ? error.message : "Failed to create project or upload drawing",
         variant: "destructive",
       });
     }
