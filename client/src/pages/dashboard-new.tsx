@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Layout from "@/components/layout";
 import DrawingViewer from "@/components/drawing-viewer";
+import InteractiveFloorPlan from "@/components/interactive-floor-plan";
 import VerticalTakeoffSelector from "@/components/vertical-takeoff-selector";
 import AIChatWidget from "@/components/ai-chat-widget";
 import RealtimeAnalysisPanel from "@/components/realtime-analysis-panel";
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [highlightedElement, setHighlightedElement] = useState<string | null>(null);
 
   const { toast } = useToast();
 
@@ -195,8 +197,17 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              {/* Drawing Viewer */}
-              <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
+              {/* Interactive Floor Plan */}
+              <InteractiveFloorPlan 
+                drawing={currentDrawing} 
+                highlightedElement={highlightedElement}
+                onElementClick={(elementId) => console.log('Element clicked:', elementId)}
+              />
+              
+              {/* Fallback to original DrawingViewer for file upload when no drawing */}
+              {!currentDrawing && (
+                <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
+              )}
             </div>
 
             {/* Right side: Buttons + AI Analysis Panel */}
@@ -224,6 +235,7 @@ export default function Dashboard() {
                 selectedTypes={selectedTakeoffTypes}
                 isAnalyzing={isAnalyzing}
                 onStartAnalysis={handleRunAnalysis}
+                onElementHover={setHighlightedElement}
               />
             </div>
           </div>

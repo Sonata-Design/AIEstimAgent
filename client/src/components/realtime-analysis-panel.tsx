@@ -41,13 +41,15 @@ interface RealtimeAnalysisPanelProps {
   selectedTypes: string[];
   isAnalyzing: boolean;
   onStartAnalysis: () => void;
+  onElementHover?: (elementType: string | null) => void;
 }
 
 export default function RealtimeAnalysisPanel({ 
   drawing, 
   selectedTypes, 
   isAnalyzing,
-  onStartAnalysis 
+  onStartAnalysis,
+  onElementHover 
 }: RealtimeAnalysisPanelProps) {
   const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([
     { id: 'preprocessing', name: 'Image Preprocessing', status: 'pending', progress: 0, icon: Eye },
@@ -249,7 +251,12 @@ export default function RealtimeAnalysisPanel({
               {results.map((result, index) => {
                 const IconComponent = result.icon;
                 return (
-                  <Card key={index} className={`${result.color} border shadow-sm hover:shadow-md transition-shadow`}>
+                  <Card 
+                    key={index} 
+                    className={`${result.color} border shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
+                    onMouseEnter={() => onElementHover?.(result.type.toLowerCase())}
+                    onMouseLeave={() => onElementHover?.(null)}
+                  >
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center justify-between">
                         <div className="flex items-center space-x-3">
