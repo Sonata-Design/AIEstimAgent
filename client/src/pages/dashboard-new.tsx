@@ -95,17 +95,17 @@ export default function Dashboard() {
                 </span>
               </div>
               
-              <div className="flex items-center space-x-3">
-                {/* AI Assistant - Positioned next to Export Report */}
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  AI Assistant
-                </Button>
-                
-                {/* Export Report - Moved up here next to AI Assistant */}
+              <div className="flex items-center justify-end space-x-3 pr-96">
+                {/* Export Report - Aligned with AI Analysis panel */}
                 <Button className="bg-green-600 hover:bg-green-700" size="sm">
                   <Download className="w-4 h-4 mr-2" />
                   Export Report
+                </Button>
+                
+                {/* AI Assistant - Positioned after Export Report */}
+                <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  AI Assistant
                 </Button>
               </div>
             </div>
