@@ -101,13 +101,16 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
       const firstFile = filesToProcess[0];
       const mockDrawing: Drawing = {
         id: `drawing-${Date.now()}`,
-        projectId: "proj-1",
+        projectId: "", // Will be set by the parent component when project is created
         name: firstFile.name.replace(/\.[^/.]+$/, ""),
         filename: firstFile.name,
-        fileSize: firstFile.size,
-        uploadedAt: new Date().toISOString(),
+        fileUrl: `/uploads/${firstFile.name}`, // Mock file URL
+        fileType: firstFile.type,
         status: "complete",
-        aiProcessed: true
+        aiProcessed: true,
+        uploadedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       
       setIsUploading(false);

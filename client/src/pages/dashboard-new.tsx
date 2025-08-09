@@ -6,6 +6,7 @@ import AIChatWidget from "@/components/ai-chat-widget";
 import RealtimeAnalysisPanel from "@/components/realtime-analysis-panel";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Download,
   Ruler,
@@ -13,12 +14,13 @@ import {
   Hash,
   MessageSquare
 } from "lucide-react";
-import type { Drawing } from "@shared/schema";
+import type { Drawing, Project } from "@shared/schema";
 
 export default function Dashboard() {
   const [selectedTakeoffTypes, setSelectedTakeoffTypes] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
 
   const { toast } = useToast();
 
@@ -54,23 +56,61 @@ export default function Dashboard() {
     }, 8000); // Longer duration to show the progress steps
   };
 
-  const handleFileUpload = (drawing: Drawing) => {
-    setCurrentDrawing(drawing);
-    
-    // Auto-select common takeoff types if none are selected
-    if (selectedTakeoffTypes.length === 0) {
-      setSelectedTakeoffTypes(['doors', 'windows', 'flooring', 'electrical']);
+  const createNewProject = async (drawingName: string): Promise<Project> => {
+    try {
+      const projectData = {
+        name: `Project - ${drawingName}`,
+        description: `Auto-generated project from uploaded drawing: ${drawingName}`,
+        status: "active"
+      };
+      
+      const project = await apiRequest("/api/projects", "POST", projectData);
+      return project;
+    } catch (error) {
+      console.error("Failed to create project:", error);
+      throw error;
     }
-    
-    // Automatically start analysis after a brief delay
-    setTimeout(() => {
-      handleRunAnalysis();
-    }, 1000);
-    
-    toast({
-      title: "File uploaded successfully",
-      description: "Starting automatic AI analysis...",
-    });
+  };
+
+  const handleFileUpload = async (drawing: Drawing) => {
+    try {
+      // Create a new project if none exists
+      if (!currentProject) {
+        const project = await createNewProject(drawing.name);
+        setCurrentProject(project);
+        
+        // Update the drawing with the correct project ID
+        drawing.projectId = project.id;
+        
+        toast({
+          title: "Project created",
+          description: `Created new project: ${project.name}`,
+        });
+      }
+      
+      setCurrentDrawing(drawing);
+      
+      // Auto-select common takeoff types if none are selected
+      if (selectedTakeoffTypes.length === 0) {
+        setSelectedTakeoffTypes(['doors', 'windows', 'flooring', 'electrical']);
+      }
+      
+      // Automatically start analysis after a brief delay
+      setTimeout(() => {
+        handleRunAnalysis();
+      }, 1000);
+      
+      toast({
+        title: "File uploaded successfully",
+        description: "Starting automatic AI analysis...",
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to create project or upload drawing",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -90,7 +130,7 @@ export default function Dashboard() {
           <div className="bg-white border-b border-slate-200 px-6 py-3">
             <div className="flex items-center">
               <span className="text-sm text-slate-500">
-                {currentDrawing?.name || "Upload a drawing to begin"}
+                {currentProject ? `${currentProject.name} - ` : ""}{currentDrawing?.name || "Upload a drawing to begin"}
               </span>
             </div>
           </div>
