@@ -156,7 +156,7 @@ export default function RealtimeAnalysisPanel({
 
   if (!drawing) {
     return (
-      <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+      <div className="flex-1 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900">AI Analysis</h2>
           <p className="text-sm text-slate-600">Real-time takeoff processing</p>
@@ -172,7 +172,7 @@ export default function RealtimeAnalysisPanel({
   }
 
   return (
-    <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+    <div className="flex-1 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center justify-between">

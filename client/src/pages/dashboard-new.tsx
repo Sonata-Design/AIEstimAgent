@@ -86,28 +86,12 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Header with AI Assistant and Export Button */}
+          {/* Simple Header */}
           <div className="bg-white border-b border-slate-200 px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-slate-500">
-                  {currentDrawing?.name || "Upload a drawing to begin"}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-end space-x-3 pr-96">
-                {/* Export Report - Aligned with AI Analysis panel */}
-                <Button className="bg-green-600 hover:bg-green-700" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Report
-                </Button>
-                
-                {/* AI Assistant - Positioned after Export Report */}
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  AI Assistant
-                </Button>
-              </div>
+            <div className="flex items-center">
+              <span className="text-sm text-slate-500">
+                {currentDrawing?.name || "Upload a drawing to begin"}
+              </span>
             </div>
           </div>
 
@@ -160,13 +144,33 @@ export default function Dashboard() {
               <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
             </div>
 
-            {/* Right side: AI Analysis Panel - Aligned with drawing toolbar */}
-            <RealtimeAnalysisPanel 
-              drawing={currentDrawing}
-              selectedTypes={selectedTakeoffTypes}
-              isAnalyzing={isAnalyzing}
-              onStartAnalysis={handleRunAnalysis}
-            />
+            {/* Right side: Buttons + AI Analysis Panel */}
+            <div className="w-96 flex flex-col">
+              {/* Header buttons positioned above AI Analysis panel */}
+              <div className="bg-white p-4 border-b border-slate-200">
+                <div className="flex items-center space-x-3">
+                  {/* Export Report - Aligned with AI Analysis panel */}
+                  <Button className="bg-green-600 hover:bg-green-700" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Report
+                  </Button>
+                  
+                  {/* AI Assistant - Positioned after Export Report */}
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    AI Assistant
+                  </Button>
+                </div>
+              </div>
+              
+              {/* AI Analysis Panel */}
+              <RealtimeAnalysisPanel 
+                drawing={currentDrawing}
+                selectedTypes={selectedTakeoffTypes}
+                isAnalyzing={isAnalyzing}
+                onStartAnalysis={handleRunAnalysis}
+              />
+            </div>
           </div>
 
 
