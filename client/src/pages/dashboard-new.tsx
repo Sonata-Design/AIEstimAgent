@@ -124,10 +124,8 @@ export default function Dashboard() {
                     <Hash className="w-4 h-4" />
                   </Button>
                 </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                {/* View Controls */}
+
+                {/* View Controls - Moved next to measurement tools */}
                 <div className="flex items-center bg-white rounded-lg p-1 border">
                   <Button variant="ghost" size="sm" className="bg-blueprint-50 text-blueprint-700 text-xs">
                     View
@@ -136,8 +134,10 @@ export default function Dashboard() {
                     Annotate
                   </Button>
                 </div>
-
-                {/* Export */}
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                {/* Export Report - Moved to right side next to AI Assistant */}
                 <Button className="bg-green-600 hover:bg-green-700" size="sm">
                   <Download className="w-4 h-4 mr-2" />
                   Export Report
@@ -150,7 +150,7 @@ export default function Dashboard() {
             {/* Drawing Viewer */}
             <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
 
-            {/* Real-time Analysis Panel */}
+            {/* Real-time Analysis Panel - Moved up to align with drawing tools */}
             <RealtimeAnalysisPanel 
               drawing={currentDrawing}
               selectedTypes={selectedTakeoffTypes}
@@ -159,7 +159,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* AI Chat Widget - Top Right Corner */}
+          {/* AI Chat Widget - Positioned in top right corner of main area */}
           <AIChatWidget />
         </main>
       </div>
