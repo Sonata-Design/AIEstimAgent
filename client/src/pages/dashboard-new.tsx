@@ -85,13 +85,21 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Simplified Header */}
+          {/* Header with AI Assistant and Export Button */}
           <div className="bg-white border-b border-slate-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-slate-500">
                   {currentDrawing?.name || "Upload a drawing to begin"}
                 </span>
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                {/* Export Report - Moved up here next to AI Assistant */}
+                <Button className="bg-green-600 hover:bg-green-700" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Report
+                </Button>
               </div>
             </div>
           </div>
@@ -136,13 +144,7 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              <div className="flex items-center space-x-3">
-                {/* Export Report - Moved to right side next to AI Assistant */}
-                <Button className="bg-green-600 hover:bg-green-700" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Report
-                </Button>
-              </div>
+              <div></div>
             </div>
           </div>
 
@@ -150,16 +152,18 @@ export default function Dashboard() {
             {/* Drawing Viewer */}
             <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
 
-            {/* Real-time Analysis Panel - Moved up to align with drawing tools */}
-            <RealtimeAnalysisPanel 
-              drawing={currentDrawing}
-              selectedTypes={selectedTakeoffTypes}
-              isAnalyzing={isAnalyzing}
-              onStartAnalysis={handleRunAnalysis}
-            />
+            {/* Real-time Analysis Panel - Positioned to align with drawing toolbar */}
+            <div className="w-80 border-l border-slate-200 bg-white">
+              <RealtimeAnalysisPanel 
+                drawing={currentDrawing}
+                selectedTypes={selectedTakeoffTypes}
+                isAnalyzing={isAnalyzing}
+                onStartAnalysis={handleRunAnalysis}
+              />
+            </div>
           </div>
 
-          {/* AI Chat Widget - Positioned in top right corner of main area */}
+          {/* AI Chat Widget - Positioned in top right corner */}
           <AIChatWidget />
         </main>
       </div>
