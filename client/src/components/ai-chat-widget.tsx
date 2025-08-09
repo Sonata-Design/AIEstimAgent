@@ -29,7 +29,7 @@ export default function AIChatWidget({ className = "" }: AIChatWidgetProps) {
 
   if (!isOpen) {
     return (
-      <div className={`fixed top-20 right-6 z-50 ${className}`}>
+      <div className={`fixed top-32 right-6 z-50 ${className}`}>
         <Button
           onClick={() => setIsOpen(true)}
           className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
@@ -43,7 +43,7 @@ export default function AIChatWidget({ className = "" }: AIChatWidgetProps) {
   }
 
   return (
-    <div className={`fixed top-20 right-6 z-50 ${className}`}>
+    <div className={`fixed top-32 right-6 z-50 ${className}`}>
       <Card className={`w-80 shadow-xl border-purple-200 transition-all duration-300 ${
         isMinimized ? 'h-12' : 'h-96'
       }`}>

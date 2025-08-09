@@ -153,18 +153,16 @@ export default function Dashboard() {
             <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
 
             {/* Real-time Analysis Panel - Positioned to align with drawing toolbar */}
-            <div className="w-80 border-l border-slate-200 bg-white">
-              <RealtimeAnalysisPanel 
-                drawing={currentDrawing}
-                selectedTypes={selectedTakeoffTypes}
-                isAnalyzing={isAnalyzing}
-                onStartAnalysis={handleRunAnalysis}
-              />
-            </div>
+            <RealtimeAnalysisPanel 
+              drawing={currentDrawing}
+              selectedTypes={selectedTakeoffTypes}
+              isAnalyzing={isAnalyzing}
+              onStartAnalysis={handleRunAnalysis}
+            />
           </div>
 
-          {/* AI Chat Widget - Positioned in top right corner */}
-          <AIChatWidget />
+        {/* AI Chat Widget - Positioned in top right corner */}
+        <AIChatWidget />
         </main>
       </div>
     </Layout>
