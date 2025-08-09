@@ -70,7 +70,7 @@ export default function Projects() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
@@ -386,7 +386,10 @@ export default function Projects() {
 
                   <Button 
                     className="w-full mt-4 bg-blueprint-600 hover:bg-blueprint-700"
-                    onClick={() => setLocation(`/projects/${project.id}`)}
+                    onClick={() => {
+                      console.log('Navigating to project:', project.id);
+                      setLocation(`/projects/${project.id}`);
+                    }}
                   >
                     Open Project
                   </Button>
