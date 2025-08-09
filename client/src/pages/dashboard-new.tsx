@@ -10,7 +10,8 @@ import {
   Download,
   Ruler,
   Square,
-  Hash
+  Hash,
+  MessageSquare
 } from "lucide-react";
 import type { Drawing } from "@shared/schema";
 
@@ -95,6 +96,12 @@ export default function Dashboard() {
               </div>
               
               <div className="flex items-center space-x-3">
+                {/* AI Assistant - Positioned next to Export Report */}
+                <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  AI Assistant
+                </Button>
+                
                 {/* Export Report - Moved up here next to AI Assistant */}
                 <Button className="bg-green-600 hover:bg-green-700" size="sm">
                   <Download className="w-4 h-4 mr-2" />
@@ -104,55 +111,56 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Drawing Toolbar */}
-          <div className="bg-slate-50 border-b border-slate-200 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <h3 className="text-sm font-medium text-slate-900">
-                  {currentDrawing?.name || "No drawing selected"}
-                </h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-slate-500">Scale:</span>
-                  <select className="text-xs border border-slate-300 rounded px-2 py-1">
-                    <option>1/4" = 1'</option>
-                    <option>1/8" = 1'</option>
-                    <option>1/2" = 1'</option>
-                  </select>
-                </div>
-                
-                {/* Manual Measurement Tools */}
-                <div className="flex items-center space-x-1 border-l border-slate-300 pl-3">
-                  <Button variant="ghost" size="sm" title="Linear measurement">
-                    <Ruler className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" title="Area measurement">
-                    <Square className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" title="Count items">
-                    <Hash className="w-4 h-4" />
-                  </Button>
-                </div>
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left side: Drawing area with toolbar */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Drawing Toolbar */}
+              <div className="bg-slate-50 border-b border-slate-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h3 className="text-sm font-medium text-slate-900">
+                      {currentDrawing?.name || "No drawing selected"}
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-500">Scale:</span>
+                      <select className="text-xs border border-slate-300 rounded px-2 py-1">
+                        <option>1/4" = 1'</option>
+                        <option>1/8" = 1'</option>
+                        <option>1/2" = 1'</option>
+                      </select>
+                    </div>
+                    
+                    {/* Manual Measurement Tools */}
+                    <div className="flex items-center space-x-1 border-l border-slate-300 pl-3">
+                      <Button variant="ghost" size="sm" title="Linear measurement">
+                        <Ruler className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" title="Area measurement">
+                        <Square className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" title="Count items">
+                        <Hash className="w-4 h-4" />
+                      </Button>
+                    </div>
 
-                {/* View Controls - Moved next to measurement tools */}
-                <div className="flex items-center bg-white rounded-lg p-1 border">
-                  <Button variant="ghost" size="sm" className="bg-blueprint-50 text-blueprint-700 text-xs">
-                    View
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-slate-600 text-xs">
-                    Annotate
-                  </Button>
+                    {/* View Controls - Moved next to measurement tools */}
+                    <div className="flex items-center bg-white rounded-lg p-1 border">
+                      <Button variant="ghost" size="sm" className="bg-blueprint-50 text-blueprint-700 text-xs">
+                        View
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-slate-600 text-xs">
+                        Annotate
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
               
-              <div></div>
+              {/* Drawing Viewer */}
+              <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
             </div>
-          </div>
 
-          <div className="flex-1 flex overflow-hidden">
-            {/* Drawing Viewer */}
-            <DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />
-
-            {/* Real-time Analysis Panel - Positioned to align with drawing toolbar */}
+            {/* Right side: AI Analysis Panel - Aligned with drawing toolbar */}
             <RealtimeAnalysisPanel 
               drawing={currentDrawing}
               selectedTypes={selectedTakeoffTypes}
@@ -161,8 +169,7 @@ export default function Dashboard() {
             />
           </div>
 
-        {/* AI Chat Widget - Positioned in top right corner */}
-        <AIChatWidget />
+
         </main>
       </div>
     </Layout>
