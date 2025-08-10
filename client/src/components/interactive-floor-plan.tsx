@@ -20,18 +20,30 @@ interface FloorPlanElement {
 interface InteractiveFloorPlanProps {
   drawing: Drawing | null;
   highlightedElement?: string | null;
+  activeViewMode?: 'view' | 'annotate';
+  activeTool?: 'ruler' | 'area' | 'count' | null;
+  selectedScale?: string;
   onElementClick?: (elementId: string) => void;
+  onMeasurement?: (measurement: { type: string; value: string; coordinates: any }) => void;
 }
 
 export default function InteractiveFloorPlan({ 
   drawing, 
-  highlightedElement, 
-  onElementClick 
+  highlightedElement,
+  activeViewMode = 'view',
+  activeTool = null,
+  selectedScale = "1/4\" = 1'",
+  onElementClick,
+  onMeasurement
 }: InteractiveFloorPlanProps) {
   const [zoom, setZoom] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [measurements, setMeasurements] = useState<any[]>([]);
+  const [isDrawingMeasurement, setIsDrawingMeasurement] = useState(false);
+  const [measurementStart, setMeasurementStart] = useState<{ x: number; y: number } | null>(null);
+  const [currentMeasurement, setCurrentMeasurement] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Mock floor plan elements - in real implementation, these would come from AI analysis
@@ -71,16 +83,62 @@ export default function InteractiveFloorPlan({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (activeViewMode === 'annotate' && activeTool === 'ruler') {
+      if (!isDrawingMeasurement) {
+        setIsDrawingMeasurement(true);
+        setMeasurementStart({ x, y });
+      } else {
+        // Complete the measurement
+        const distance = Math.sqrt(
+          Math.pow(x - measurementStart!.x, 2) + Math.pow(y - measurementStart!.y, 2)
+        );
+        const scaledDistance = convertPixelsToFeet(distance, selectedScale);
+        
+        const newMeasurement = {
+          id: Date.now(),
+          type: 'linear',
+          start: measurementStart,
+          end: { x, y },
+          value: `${scaledDistance.toFixed(1)} ft`,
+        };
+        
+        setMeasurements(prev => [...prev, newMeasurement]);
+        onMeasurement?.({
+          type: newMeasurement.type,
+          value: newMeasurement.value,
+          coordinates: { start: newMeasurement.start, end: newMeasurement.end }
+        });
+        setIsDrawingMeasurement(false);
+        setMeasurementStart(null);
+        setCurrentMeasurement(null);
+      }
+    } else if (activeViewMode === 'view' || !activeTool) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setOffset({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
+    if (isDragging) {
+      setOffset({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    } else if (isDrawingMeasurement && measurementStart) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCurrentMeasurement({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      }
+    }
   };
 
   const handleMouseUp = () => {
@@ -100,6 +158,18 @@ export default function InteractiveFloorPlan({
   const getElementOpacity = (highlighted: boolean, hasHighlight: boolean) => {
     if (!hasHighlight) return 0.8;
     return highlighted ? 1.0 : 0.3;
+  };
+
+  const convertPixelsToFeet = (pixels: number, scale: string) => {
+    // Convert pixels to feet based on scale
+    // This is a simplified conversion - in reality you'd need actual drawing scale
+    const scaleFactors: { [key: string]: number } = {
+      "1/4\" = 1'": 48,  // 1/4 inch = 1 foot, so 48 pixels per foot
+      "1/8\" = 1'": 96,  // 1/8 inch = 1 foot, so 96 pixels per foot  
+      "1/2\" = 1'": 24,  // 1/2 inch = 1 foot, so 24 pixels per foot
+      "1\" = 1'": 12,    // 1 inch = 1 foot, so 12 pixels per foot
+    };
+    return pixels / (scaleFactors[scale] || 48);
   };
 
   if (!drawing) {
@@ -176,7 +246,15 @@ export default function InteractiveFloorPlan({
       {/* Drawing Canvas */}
       <div
         ref={containerRef}
-        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        className={`absolute inset-0 ${
+          activeViewMode === 'view' || !activeTool 
+            ? 'cursor-grab active:cursor-grabbing' 
+            : activeTool === 'ruler' 
+              ? 'cursor-crosshair' 
+              : activeTool === 'count'
+                ? 'cursor-pointer'
+                : 'cursor-default'
+        }`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -226,6 +304,72 @@ export default function InteractiveFloorPlan({
             />
           ))}
         </div>
+
+        {/* Measurements Overlay - Separate SVG */}
+        <svg 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            transform: `translate(${50 + offset.x}px, ${50 + offset.y}px) scale(${zoom / 100})`,
+            transformOrigin: 'top left',
+          }}
+        >
+          {/* Arrow marker definition */}
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon
+                points="0 0, 10 3.5, 0 7"
+                fill="#ef4444"
+              />
+            </marker>
+          </defs>
+
+          {/* Measurements */}
+          {measurements.map((measurement) => (
+            <g key={measurement.id}>
+              <line
+                x1={measurement.start.x}
+                y1={measurement.start.y}
+                x2={measurement.end.x}
+                y2={measurement.end.y}
+                stroke="#ef4444"
+                strokeWidth="2"
+                markerEnd="url(#arrowhead)"
+              />
+              <text
+                x={(measurement.start.x + measurement.end.x) / 2}
+                y={(measurement.start.y + measurement.end.y) / 2 - 10}
+                fill="#ef4444"
+                fontSize="12"
+                textAnchor="middle"
+                className="font-medium"
+              >
+                {measurement.value}
+              </text>
+            </g>
+          ))}
+
+          {/* Current measurement being drawn */}
+          {isDrawingMeasurement && measurementStart && currentMeasurement && (
+            <g>
+              <line
+                x1={measurementStart.x}
+                y1={measurementStart.y}
+                x2={currentMeasurement.x}
+                y2={currentMeasurement.y}
+                stroke="#ef4444"
+                strokeWidth="2"
+                strokeDasharray="5,5"
+              />
+            </g>
+          )}
+        </svg>
       </div>
     </div>
   );

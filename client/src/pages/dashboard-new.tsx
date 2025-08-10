@@ -23,6 +23,9 @@ export default function Dashboard() {
   const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [highlightedElement, setHighlightedElement] = useState<string | null>(null);
+  const [activeViewMode, setActiveViewMode] = useState<'view' | 'annotate'>('view');
+  const [activeTool, setActiveTool] = useState<'ruler' | 'area' | 'count' | null>(null);
+  const [selectedScale, setSelectedScale] = useState("1/4\" = 1'");
 
   const { toast } = useToast();
 
@@ -166,32 +169,79 @@ export default function Dashboard() {
                     </h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-slate-500">Scale:</span>
-                      <select className="text-xs border border-slate-300 rounded px-2 py-1">
+                      <select 
+                        className="text-xs border border-slate-300 rounded px-2 py-1"
+                        value={selectedScale}
+                        onChange={(e) => setSelectedScale(e.target.value)}
+                      >
                         <option>1/4" = 1'</option>
                         <option>1/8" = 1'</option>
                         <option>1/2" = 1'</option>
+                        <option>1" = 1'</option>
                       </select>
                     </div>
                     
                     {/* Manual Measurement Tools */}
                     <div className="flex items-center space-x-1 border-l border-slate-300 pl-3">
-                      <Button variant="ghost" size="sm" title="Linear measurement">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        title="Linear measurement"
+                        className={activeTool === 'ruler' ? 'bg-blue-100 text-blue-700' : ''}
+                        onClick={() => setActiveTool(activeTool === 'ruler' ? null : 'ruler')}
+                      >
                         <Ruler className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" title="Area measurement">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        title="Area measurement"
+                        className={activeTool === 'area' ? 'bg-blue-100 text-blue-700' : ''}
+                        onClick={() => setActiveTool(activeTool === 'area' ? null : 'area')}
+                      >
                         <Square className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" title="Count items">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        title="Count items"
+                        className={activeTool === 'count' ? 'bg-blue-100 text-blue-700' : ''}
+                        onClick={() => setActiveTool(activeTool === 'count' ? null : 'count')}
+                      >
                         <Hash className="w-4 h-4" />
                       </Button>
                     </div>
 
                     {/* View Controls - Moved next to measurement tools */}
                     <div className="flex items-center bg-white rounded-lg p-1 border">
-                      <Button variant="ghost" size="sm" className="bg-blueprint-50 text-blueprint-700 text-xs">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={`text-xs ${activeViewMode === 'view' ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`}
+                        onClick={() => {
+                          setActiveViewMode('view');
+                          setActiveTool(null);
+                          toast({
+                            title: "View Mode",
+                            description: "Navigate and zoom the drawing",
+                          });
+                        }}
+                      >
                         View
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-slate-600 text-xs">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={`text-xs ${activeViewMode === 'annotate' ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`}
+                        onClick={() => {
+                          setActiveViewMode('annotate');
+                          setActiveTool(null);
+                          toast({
+                            title: "Annotate Mode",
+                            description: "Click to add annotations and measurements",
+                          });
+                        }}
+                      >
                         Annotate
                       </Button>
                     </div>
@@ -203,7 +253,25 @@ export default function Dashboard() {
               <InteractiveFloorPlan 
                 drawing={currentDrawing} 
                 highlightedElement={highlightedElement}
-                onElementClick={(elementId) => console.log('Element clicked:', elementId)}
+                activeViewMode={activeViewMode}
+                activeTool={activeTool}
+                selectedScale={selectedScale}
+                onElementClick={(elementId) => {
+                  if (activeTool === 'count') {
+                    toast({
+                      title: "Element Counted",
+                      description: `Added ${elementId} to count`,
+                    });
+                  } else {
+                    console.log('Element clicked:', elementId);
+                  }
+                }}
+                onMeasurement={(measurement) => {
+                  toast({
+                    title: "Measurement Added",
+                    description: `${measurement.type}: ${measurement.value}`,
+                  });
+                }}
               />
               
               {/* Fallback to original DrawingViewer for file upload when no drawing */}
