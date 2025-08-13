@@ -23,7 +23,8 @@ export default function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4">
+        <div className="relative flex items-center px-6 py-4">
+          {/* Logo - Fixed Left */}
           <div className="flex items-center">
             <Link href="/">
               <div className="flex items-center space-x-3 cursor-pointer">
@@ -35,8 +36,8 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           </div>
 
-          {/* Centered Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          {/* Absolutely Centered Navigation */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 hidden md:flex items-center space-x-1">
             <Link href="/">
               <Button variant="ghost" size="sm" className={location === "/" ? "text-blueprint-700 bg-blueprint-50 hover:bg-blueprint-100" : "text-slate-600 hover:text-blueprint-700"}>
                 <Home className="w-4 h-4 mr-2" />
@@ -56,7 +57,9 @@ export default function Layout({ children }: LayoutProps) {
               </Button>
             </Link>
           </div>
-          <div className="flex items-center">
+          
+          {/* Right side placeholder for balance */}
+          <div className="flex items-center ml-auto">
             {/* Empty space for header balance */}
           </div>
         </div>
