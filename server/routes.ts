@@ -1,4 +1,5 @@
 import type { Express, Request } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProjectSchema, insertDrawingSchema, insertTakeoffSchema, insertSavedAnalysisSchema } from "@shared/schema";
@@ -32,6 +33,29 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve uploaded files
+  app.use('/uploads', express.static(uploadDir));
+  
+  // General file upload endpoint
+  app.post("/api/upload", upload.single('file'), async (req: MulterRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({ 
+        fileUrl,
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+
   // Projects routes
   app.get("/api/projects", async (req, res) => {
     try {

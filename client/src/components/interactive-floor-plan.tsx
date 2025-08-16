@@ -179,7 +179,6 @@ export default function InteractiveFloorPlan({
           <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center mx-auto mb-4">
             <Maximize className="w-8 h-8 text-slate-400" />
           </div>
-          <p className="text-slate-600">Upload a drawing to view interactive floor plan</p>
         </div>
       </div>
     );
@@ -260,27 +259,43 @@ export default function InteractiveFloorPlan({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* Mock Floor Plan Background */}
+        {/* Actual Drawing Display */}
         <div
           className="bg-white border-2 border-slate-300 relative transition-transform duration-200"
           style={{
-            width: '600px',
-            height: '400px',
+            width: '800px',
+            height: '600px',
             transform: `translate(${50 + offset.x}px, ${50 + offset.y}px) scale(${zoom / 100})`,
             transformOrigin: 'top left',
           }}
         >
-          {/* Mock Room Outlines */}
-          <div className="absolute inset-4 border-2 border-slate-400">
-            <div className="absolute top-0 left-1/3 w-px h-full bg-slate-300"></div>
-            <div className="absolute top-1/2 left-0 w-full h-px bg-slate-300"></div>
-          </div>
-
-          {/* Room Labels */}
-          <div className="absolute top-8 left-8 text-xs text-slate-500 font-medium">Living Room</div>
-          <div className="absolute top-8 right-8 text-xs text-slate-500 font-medium">Kitchen</div>
-          <div className="absolute bottom-8 left-8 text-xs text-slate-500 font-medium">Bedroom</div>
-          <div className="absolute bottom-8 right-8 text-xs text-slate-500 font-medium">Bathroom</div>
+          {/* Display the actual drawing file */}
+          {drawing.fileUrl && (
+            <img
+              src={drawing.fileUrl}
+              alt={drawing.name}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                // Fallback to URL.createObjectURL if direct path doesn't work
+                const target = e.target as HTMLImageElement;
+                console.warn('Failed to load drawing from:', drawing.fileUrl);
+              }}
+            />
+          )}
+          
+          {/* Fallback mock layout if image fails to load */}
+          {!drawing.fileUrl && (
+            <>
+              <div className="absolute inset-4 border-2 border-slate-400">
+                <div className="absolute top-0 left-1/3 w-px h-full bg-slate-300"></div>
+                <div className="absolute top-1/2 left-0 w-full h-px bg-slate-300"></div>
+              </div>
+              <div className="absolute top-8 left-8 text-xs text-slate-500 font-medium">Living Room</div>
+              <div className="absolute top-8 right-8 text-xs text-slate-500 font-medium">Kitchen</div>
+              <div className="absolute bottom-8 left-8 text-xs text-slate-500 font-medium">Bedroom</div>
+              <div className="absolute bottom-8 right-8 text-xs text-slate-500 font-medium">Bathroom</div>
+            </>
+          )}
 
           {/* Interactive Elements */}
           {isComplete && floorPlanElements.map((element) => (

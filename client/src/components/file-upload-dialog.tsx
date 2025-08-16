@@ -96,15 +96,32 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
   const processFilesImmediately = async (filesToProcess: File[]) => {
     setIsUploading(true);
     
-    // Simulate file processing
-    setTimeout(() => {
+    try {
       const firstFile = filesToProcess[0];
-      const mockDrawing: Drawing = {
+      
+      // Upload file to server
+      const formData = new FormData();
+      formData.append('file', firstFile);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+      
+      const uploadResult = await response.json();
+      
+      // Create drawing object with actual file URL
+      const drawingData: Drawing = {
         id: `drawing-${Date.now()}`,
         projectId: "", // Will be set by the parent component when project is created
         name: firstFile.name.replace(/\.[^/.]+$/, ""),
         filename: firstFile.name,
-        fileUrl: `/uploads/${firstFile.name}`, // Mock file URL
+        fileUrl: uploadResult.fileUrl, // Use actual uploaded file URL
         fileType: firstFile.type,
         status: "complete",
         scale: "1/4\" = 1'",
@@ -115,8 +132,16 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
       };
       
       setIsUploading(false);
-      onFileUpload(mockDrawing);
-    }, 1500);
+      onFileUpload(drawingData);
+    } catch (error) {
+      console.error('File upload failed:', error);
+      setIsUploading(false);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload file",
+        variant: "destructive",
+      });
+    }
   };
 
   const getFileIcon = (file: File) => {
