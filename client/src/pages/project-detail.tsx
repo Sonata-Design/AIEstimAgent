@@ -40,6 +40,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { ReportGeneratorComponent } from "@/components/report-generator";
+import { ReportsDashboard } from "@/components/reports-dashboard";
 import { 
   ArrowLeft,
   Building, 
@@ -322,31 +324,72 @@ export default function ProjectDetail() {
   };
 
   const exportTakeoffs = () => {
-    // Create CSV content
-    const headers = ["Element Type", "Item Name", "Quantity", "Unit", "Cost Per Unit", "Total Cost", "Notes", "Verified"];
-    const rows = takeoffs.map((takeoff: Takeoff) => [
-      takeoff.elementType,
-      takeoff.elementName,
-      takeoff.quantity?.toString() || "0",
-      takeoff.unit,
-      takeoff.costPerUnit?.toString() || "0",
-      takeoff.totalCost?.toString() || "0",
-      takeoff.notes || "",
-      takeoff.verified ? "Yes" : "No"
-    ]);
+    // Enhanced CSV with material/labor separation and additional details
+    const headers = [
+      "Element Type", 
+      "Item Name", 
+      "Quantity", 
+      "Unit", 
+      "Area (sq ft)", 
+      "Length (ft)",
+      "Material Cost/Unit", 
+      "Labor Cost/Unit", 
+      "Total Cost/Unit",
+      "Total Material Cost",
+      "Total Labor Cost", 
+      "Total Cost", 
+      "AI Detected",
+      "Manually Edited",
+      "Original Quantity",
+      "Verified", 
+      "Notes"
+    ];
+    
+    const rows = takeoffs.map((takeoff: Takeoff) => {
+      // Estimate material/labor split (typically 60/40 for construction)
+      const totalCostPerUnit = takeoff.costPerUnit || 0;
+      const materialCostPerUnit = totalCostPerUnit * 0.6;
+      const laborCostPerUnit = totalCostPerUnit * 0.4;
+      const quantity = takeoff.quantity || 0;
+      
+      return [
+        takeoff.elementType,
+        takeoff.elementName,
+        quantity.toString(),
+        takeoff.unit,
+        takeoff.area?.toString() || "",
+        takeoff.length?.toString() || "",
+        materialCostPerUnit.toFixed(2),
+        laborCostPerUnit.toFixed(2),
+        totalCostPerUnit.toString(),
+        (materialCostPerUnit * quantity).toFixed(2),
+        (laborCostPerUnit * quantity).toFixed(2),
+        takeoff.totalCost?.toString() || "0",
+        takeoff.detectedByAi ? "Yes" : "No",
+        takeoff.manuallyEdited ? "Yes" : "No",
+        takeoff.originalQuantity?.toString() || "",
+        takeoff.verified ? "Yes" : "No",
+        takeoff.notes || ""
+      ];
+    });
 
     const csvContent = [headers, ...rows]
       .map(row => row.map((cell: string) => `"${cell}"`).join(","))
       .join("\n");
 
-    // Download CSV
+    // Download enhanced CSV
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${project?.name || "project"}-takeoffs.csv`;
+    a.download = `${project?.name || "project"}-detailed-takeoffs.csv`;
     a.click();
     URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: "Detailed takeoff report with material/labor breakdown has been downloaded.",
+    });
   };
 
   if (!match || !projectId) {
@@ -450,6 +493,13 @@ export default function ProjectDetail() {
               </DialogContent>
             </Dialog>
 
+            <ReportGeneratorComponent
+              project={project}
+              takeoffs={takeoffs}
+              drawings={drawings}
+              analyses={savedAnalyses}
+            />
+
             <Button onClick={exportTakeoffs} variant="outline">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
@@ -552,12 +602,13 @@ export default function ProjectDetail() {
       {/* Main Content */}
       <div className="p-6">
         <Tabs defaultValue="takeoffs" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="takeoffs">Takeoffs</TabsTrigger>
             <TabsTrigger value="saved-analyses">Saved Analyses</TabsTrigger>
             <TabsTrigger value="drawings">Drawings</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="skus">SKUs</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
           </TabsList>
 
           <TabsContent value="takeoffs" className="space-y-4">
@@ -1180,6 +1231,15 @@ export default function ProjectDetail() {
                 </div>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-4">
+            <ReportsDashboard
+              project={project}
+              takeoffs={takeoffs}
+              drawings={drawings}
+              analyses={savedAnalyses}
+            />
           </TabsContent>
         </Tabs>
       </div>
