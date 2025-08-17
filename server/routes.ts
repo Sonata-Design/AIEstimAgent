@@ -987,6 +987,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/projects/:projectId/risk-assessment", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const riskAssessment = await storage.generateProjectRiskAssessment(projectId);
+      res.json(riskAssessment);
+    } catch (error) {
+      console.error("Error generating risk assessment:", error);
+      res.status(500).json({ message: "Failed to generate risk assessment" });
+    }
+  });
+
+  app.get("/api/projects/:projectId/cost-trends", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const months = parseInt(req.query.months as string) || 6;
+      const trends = await storage.predictProjectCostTrends(projectId, months);
+      res.json(trends);
+    } catch (error) {
+      console.error("Error predicting cost trends:", error);
+      res.status(500).json({ message: "Failed to predict cost trends" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

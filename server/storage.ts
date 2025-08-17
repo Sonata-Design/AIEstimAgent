@@ -1133,6 +1133,184 @@ export class DatabaseStorage implements IStorage {
       factors
     };
   }
+
+  async generateProjectRiskAssessment(projectId: string): Promise<{
+    overallRiskScore: number;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    risks: Array<{
+      category: string;
+      severity: 'low' | 'medium' | 'high';
+      probability: number;
+      impact: string;
+      mitigation: string;
+    }>;
+    recommendations: string[];
+  }> {
+    const analysis = await this.analyzeProjectCostEfficiency(projectId);
+    const benchmark = await this.generateCostBenchmarkReport(projectId);
+    
+    const risks = [];
+    let riskScore = 0;
+    
+    // Cost overrun risk
+    if (benchmark.percentageVsAverage > 20) {
+      risks.push({
+        category: 'Cost Overrun',
+        severity: 'high' as const,
+        probability: 0.75,
+        impact: 'Project costs significantly exceed industry standards',
+        mitigation: 'Implement value engineering and material substitution strategies'
+      });
+      riskScore += 25;
+    }
+    
+    // Budget concentration risk
+    const topCategory = analysis.costByCategory[0];
+    if (topCategory && topCategory.percentage > 45) {
+      risks.push({
+        category: 'Cost Concentration',
+        severity: 'medium' as const,
+        probability: 0.6,
+        impact: `Over-dependence on ${topCategory.category} creates supply chain vulnerability`,
+        mitigation: 'Diversify suppliers and consider alternative materials'
+      });
+      riskScore += 15;
+    }
+    
+    // Market volatility risk for expensive projects
+    if (analysis.totalCost > 150000) {
+      risks.push({
+        category: 'Market Volatility',
+        severity: 'medium' as const,
+        probability: 0.4,
+        impact: 'Large projects vulnerable to material price fluctuations',
+        mitigation: 'Lock in pricing with suppliers and consider phased purchasing'
+      });
+      riskScore += 10;
+    }
+    
+    // Quality vs cost risk
+    if (benchmark.ranking === 'below-average') {
+      risks.push({
+        category: 'Quality Risk',
+        severity: 'low' as const,
+        probability: 0.3,
+        impact: 'Low costs may indicate potential quality compromises',
+        mitigation: 'Verify material specifications and contractor qualifications'
+      });
+      riskScore += 5;
+    }
+    
+    // Determine overall risk level
+    let riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    if (riskScore >= 40) riskLevel = 'critical';
+    else if (riskScore >= 25) riskLevel = 'high';
+    else if (riskScore >= 15) riskLevel = 'medium';
+    else riskLevel = 'low';
+    
+    // Generate recommendations
+    const recommendations = [];
+    if (riskScore > 20) {
+      recommendations.push('Consider implementing a risk management plan');
+      recommendations.push('Establish contingency budget of 10-15%');
+    }
+    if (analysis.efficiency === 'poor') {
+      recommendations.push('Conduct detailed cost review before proceeding');
+    }
+    if (risks.some(r => r.category === 'Cost Concentration')) {
+      recommendations.push('Evaluate supplier diversity and backup options');
+    }
+    
+    return {
+      overallRiskScore: riskScore,
+      riskLevel,
+      risks,
+      recommendations
+    };
+  }
+
+  async predictProjectCostTrends(projectId: string, months: number = 6): Promise<{
+    currentCost: number;
+    projectedCost: number;
+    trendDirection: 'increasing' | 'decreasing' | 'stable';
+    confidenceLevel: number;
+    factors: Array<{
+      factor: string;
+      impact: number;
+      description: string;
+    }>;
+    monthlyProjections: Array<{
+      month: number;
+      projectedCost: number;
+      confidence: number;
+    }>;
+  }> {
+    const analysis = await this.analyzeProjectCostEfficiency(projectId);
+    const currentCost = analysis.totalCost;
+    
+    // Simulate market trend factors (in production, this would use real market data)
+    const baseInflationRate = 0.02; // 2% annual inflation
+    const materialVolatility = Math.random() * 0.1 - 0.05; // -5% to +5% volatility
+    const seasonalFactor = Math.sin(Date.now() / 1000000) * 0.03; // Seasonal variation
+    
+    const monthlyInflationRate = baseInflationRate / 12;
+    const monthlyVolatility = materialVolatility / 12;
+    const monthlySeasonal = seasonalFactor / 12;
+    
+    const factors = [
+      {
+        factor: 'Base Inflation',
+        impact: baseInflationRate * 100,
+        description: 'Standard construction cost inflation rate'
+      },
+      {
+        factor: 'Material Volatility',
+        impact: materialVolatility * 100,
+        description: 'Market-specific material price fluctuations'
+      },
+      {
+        factor: 'Seasonal Variation',
+        impact: seasonalFactor * 100,
+        description: 'Seasonal demand patterns affecting pricing'
+      }
+    ];
+    
+    // Generate monthly projections
+    const monthlyProjections = [];
+    let runningCost = currentCost;
+    
+    for (let month = 1; month <= months; month++) {
+      const monthlyChange = monthlyInflationRate + monthlyVolatility + monthlySeasonal;
+      runningCost *= (1 + monthlyChange);
+      
+      const confidence = Math.max(0.3, 0.9 - (month * 0.1)); // Confidence decreases over time
+      
+      monthlyProjections.push({
+        month,
+        projectedCost: Math.round(runningCost),
+        confidence
+      });
+    }
+    
+    const finalProjectedCost = monthlyProjections[monthlyProjections.length - 1].projectedCost;
+    const totalChange = (finalProjectedCost - currentCost) / currentCost;
+    
+    let trendDirection: 'increasing' | 'decreasing' | 'stable';
+    if (Math.abs(totalChange) < 0.02) trendDirection = 'stable';
+    else if (totalChange > 0) trendDirection = 'increasing';
+    else trendDirection = 'decreasing';
+    
+    const confidenceLevel = monthlyProjections[Math.floor(months/2)]?.confidence || 0.7;
+    
+    return {
+      currentCost,
+      projectedCost: finalProjectedCost,
+      trendDirection,
+      confidenceLevel,
+      factors,
+      monthlyProjections
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();
