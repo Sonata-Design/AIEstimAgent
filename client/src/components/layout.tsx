@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Bell, User, Home, Folder, BarChart3, Settings, DollarSign } from "lucide-react";
-import estimagentLogo from "@/assets/estimagent-header.png";
+import estimagentLogo from "@/assets/estimagent-logo.png";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,8 +21,8 @@ export default function Layout({ children }: LayoutProps) {
               <div className="flex items-center cursor-pointer">
                 <img 
                   src={estimagentLogo} 
-                  alt="EstimAgent Logo" 
-                  className="h-8 w-auto object-contain"
+                  alt="EstimAgent Calculator Logo" 
+                  className="h-10 w-10 object-contain"
                 />
               </div>
             </Link>
