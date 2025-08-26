@@ -22,7 +22,7 @@ export default function Layout({ children }: LayoutProps) {
                 <img 
                   src={estimagentLogo} 
                   alt="EstimAgent Calculator Logo" 
-                  className="h-10 w-10 object-contain"
+                  className="h-20 w-20 object-contain"
                 />
               </div>
             </Link>
