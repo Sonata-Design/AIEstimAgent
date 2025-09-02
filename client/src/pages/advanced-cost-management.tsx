@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Building2, TrendingUp, DollarSign, Users, Package, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
+import Layout from "@/components/layout";
 
 interface RegionalCost {
   id: string;
@@ -127,7 +128,8 @@ export default function AdvancedCostManagement() {
   const avgCostIndex = regionalCosts.reduce((sum, rc) => sum + rc.costIndex, 0) / regionalCosts.length || 0;
 
   return (
-    <div className="container mx-auto p-6 space-y-6" data-testid="advanced-cost-management">
+    <Layout>
+      <div className="container mx-auto p-6 space-y-6" data-testid="advanced-cost-management">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Advanced Cost Management</h1>
@@ -546,6 +548,7 @@ export default function AdvancedCostManagement() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </Layout>
   );
 }
