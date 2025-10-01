@@ -1,5 +1,6 @@
 # ml/app.py  — FULL UPDATED
-
+from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 import os
 import shutil
 import json
@@ -15,6 +16,16 @@ load_dotenv()
 
 app = FastAPI()
 
+app = FastAPI(title="AIEstimAgent API")
+
+@app.get("/", include_in_schema=False)
+async def root():
+    # send browsers to the interactive Swagger UI
+    return RedirectResponse(url="/docs")
+
+@app.get("/health", include_in_schema=False)
+async def health():
+    return {"status": "ok"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:5001"],
