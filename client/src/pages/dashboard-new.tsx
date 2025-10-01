@@ -9,21 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import {
-  Download,
-  Ruler,
-  Square,
-  Hash,
-  MessageSquare,
-  Settings,
-  PanelLeft,
-  PanelRight,
-} from "lucide-react";
+import { Download, Ruler, Square, Hash, MessageSquare, PanelLeft, PanelRight } from "lucide-react";
 import type { Drawing, Project } from "@shared/schema";
+import { useDetectionsStore } from "@/store/useDetectionsStore";
+import type { Detection } from "@/store/useDetectionsStore";
+
+const isDetection = (value: unknown): value is Detection => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Detection;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.cls === "string" &&
+    Array.isArray(candidate.points)
+  );
+};
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [selectedTakeoffTypes, setSelectedTakeoffTypes] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -34,13 +38,14 @@ export default function Dashboard() {
   const [selectedScale, setSelectedScale] = useState("1/4\" = 1'");
 
   const { toast } = useToast();
+  // MODIFICATION: The Zustand hook is now called at the top level, which is correct.
+  const setDetections = useDetectionsStore(s => s.setDetections);
 
   const handleRunAnalysis = async () => {
     if (!currentDrawing || !currentDrawing.fileUrl) {
       toast({ title: "No Drawing", description: "Please upload a drawing first.", variant: "destructive" });
       return;
     }
-
     const typesToAnalyze = selectedTakeoffTypes.length > 0 ? selectedTakeoffTypes : ['openings', 'flooring', 'walls'];
     if (typesToAnalyze.length === 0) {
       toast({ title: "No Selection", description: "Please select at least one takeoff type.", variant: "destructive" });
@@ -58,15 +63,27 @@ export default function Dashboard() {
       const formData = new FormData();
       formData.append('file', imageFile);
       formData.append('types', JSON.stringify(typesToAnalyze));
+      formData.append('scale', selectedScale);
 
       const results = await apiRequest('/api/analyze', 'POST', formData, true);
 
       setAnalysisResults(results);
-      console.log("AI Analysis Results:", results);
 
+      // MODIFICATION: The hook itself is removed from here. We now call the 'setDetections' function.
+      if (results && results.predictions) {
+        // We can flatten all predictions from different categories into one array for the store
+        const allPredictions = Object.values(results.predictions)
+          .flat()
+          .filter((item): item is Detection => isDetection(item));
+
+        setDetections(allPredictions);
+      } else {
+        setDetections([]); // Clear detections if the analysis returns no predictions
+      }
+      
       toast({
         title: "Analysis Complete",
-        description: `Successfully re-analyzed ${typesToAnalyze.length} element types.`,
+        description: `Successfully analyzed ${typesToAnalyze.length} element types.`,
       });
     } catch (error) {
       toast({
@@ -87,45 +104,37 @@ export default function Dashboard() {
   };
 
   const handleFileUpload = async (file: File) => {
-    setIsAnalyzing(true);
-    setAnalysisResults(null);
+    setIsUploading(true);
     setCurrentDrawing(null);
+    setAnalysisResults(null);
+    setDetections([]); // Clear previous detections on new upload
 
     try {
-      const typesToAnalyze = selectedTakeoffTypes.length > 0 ? selectedTakeoffTypes : ['openings', 'flooring', 'walls'];
-      const analysisFormData = new FormData();
-      analysisFormData.append('file', file);
-      analysisFormData.append('types', JSON.stringify(typesToAnalyze));
-
-      const results = await apiRequest('/api/analyze', 'POST', analysisFormData, true);
-      setAnalysisResults(results);
-      console.log("AI Analysis Results:", results);
-
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
       const uploadResult = await apiRequest('/api/upload', 'POST', uploadFormData, true);
-
+      
       let projectToUse = currentProject || await createNewProject(file.name);
       setCurrentProject(projectToUse);
-
+      
       const drawingData = {
         projectId: projectToUse.id,
         name: file.name,
-        filename: file.name,
+        filename: uploadResult.filename,
         fileUrl: uploadResult.fileUrl,
         fileType: file.type,
         status: "complete",
         scale: selectedScale,
-        aiProcessed: true
+        aiProcessed: false
       };
       const savedDrawing = await apiRequest(`/api/projects/${projectToUse.id}/drawings`, "POST", drawingData);
+      
       setCurrentDrawing(savedDrawing);
-
-      toast({ title: "File Processed", description: "Analysis is complete and the drawing has been saved." });
+      toast({ title: "Upload Successful", description: "Select takeoff types and click 'Run AI Analysis'." });
     } catch (error) {
-      toast({ title: "Processing Failed", description: error instanceof Error ? error.message : "An unknown error occurred", variant: "destructive" });
+      toast({ title: "Upload Failed", description: error instanceof Error ? error.message : "An unknown error occurred", variant: "destructive" });
     } finally {
-      setIsAnalyzing(false);
+      setIsUploading(false);
     }
   };
 
@@ -144,7 +153,7 @@ export default function Dashboard() {
         <main className="flex-1 flex flex-col overflow-hidden">
           <div className="bg-white border-b border-slate-200 px-4 lg:px-6 py-3">
             <div className="flex items-center">
-              <Sheet>
+               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="lg:hidden mr-2">
                     <PanelLeft className="w-5 h-5" />
@@ -153,9 +162,7 @@ export default function Dashboard() {
                 <SheetContent side="left" className="p-0 w-80">
                   <SheetHeader className="sr-only">
                     <SheetTitle>Takeoff Types Menu</SheetTitle>
-                    <SheetDescription>
-                      Select building elements to detect and measure from this list.
-                    </SheetDescription>
+                    <SheetDescription>Select building elements to detect and measure from this list.</SheetDescription>
                   </SheetHeader>
                   <VerticalTakeoffSelector
                     selectedTypes={selectedTakeoffTypes}
@@ -170,7 +177,6 @@ export default function Dashboard() {
                 {currentProject ? `${currentProject.name} - ` : ""}{currentDrawing?.name || "Upload a drawing"}
               </span>
 
-              {/* MODIFICATION: The second Sheet component is now corrected */}
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="lg:hidden ml-auto">
@@ -178,20 +184,18 @@ export default function Dashboard() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="p-0 w-full sm:w-96">
-                  <SheetHeader className="sr-only">
+                   <SheetHeader className="sr-only">
                     <SheetTitle>AI Analysis Panel</SheetTitle>
-                    <SheetDescription>
-                      View the results of the real-time AI takeoff processing.
-                    </SheetDescription>
+                    <SheetDescription>View the results of the real-time AI takeoff processing.</SheetDescription>
                   </SheetHeader>
-                  <RealtimeAnalysisPanel
-                    drawing={currentDrawing}
-                    selectedTypes={selectedTakeoffTypes}
-                    isAnalyzing={isAnalyzing}
-                    onStartAnalysis={handleRunAnalysis}
-                    onElementHover={setHighlightedElement}
-                    analysisResults={analysisResults}
-                  />
+                   <RealtimeAnalysisPanel 
+                      drawing={currentDrawing}
+                      selectedTypes={selectedTakeoffTypes}
+                      isAnalyzing={isAnalyzing}
+                      onStartAnalysis={handleRunAnalysis}
+                      onElementHover={setHighlightedElement}
+                      analysisResults={analysisResults}
+                    />
                 </SheetContent>
               </Sheet>
             </div>
@@ -199,49 +203,51 @@ export default function Dashboard() {
 
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="bg-slate-50 border-b border-slate-200 p-2 lg:p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 lg:space-x-4">
-                    <h3 className="text-sm font-medium text-slate-900 hidden md:block truncate max-w-xs">
-                      {currentDrawing?.name || "No drawing selected"}
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-slate-500 hidden sm:inline">Scale:</span>
-                      <select className="text-xs border border-slate-300 rounded px-2 py-1" value={selectedScale} onChange={(e) => setSelectedScale(e.target.value)}>
-                        <option>1/4" = 1'</option><option>1/8" = 1'</option><option>1/2" = 1'</option><option>1" = 1'</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center space-x-1 border-l border-slate-300 pl-2 lg:pl-3">
-                      <Button variant="ghost" size="sm" title="Linear measurement" className={activeTool === 'ruler' ? 'bg-blue-100 text-blue-700' : ''} onClick={() => setActiveTool(activeTool === 'ruler' ? null : 'ruler')}><Ruler className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" title="Area measurement" className={activeTool === 'area' ? 'bg-blue-100 text-blue-700' : ''} onClick={() => setActiveTool(activeTool === 'area' ? null : 'area')}><Square className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" title="Count items" className={activeTool === 'count' ? 'bg-blue-100 text-blue-700' : ''} onClick={() => setActiveTool(activeTool === 'count' ? null : 'count')}><Hash className="w-4 h-4" /></Button>
-                    </div>
-                    <div className="flex items-center bg-white rounded-lg p-1 border">
-                      <Button variant="ghost" size="sm" className={`text-xs px-2 ${activeViewMode === 'view' ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`} onClick={() => { setActiveViewMode('view'); setActiveTool(null); toast({ title: "View Mode", description: "Navigate and zoom the drawing" }); }}>View</Button>
-                      <Button variant="ghost" size="sm" className={`text-xs px-2 ${activeViewMode === 'annotate' ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`} onClick={() => { setActiveViewMode('annotate'); setActiveTool(null); toast({ title: "Annotate Mode", description: "Click to add annotations and measurements" }); }}>Annotate</Button>
+                <div className="bg-slate-50 border-b border-slate-200 p-2 lg:p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 lg:space-x-4">
+                      <h3 className="text-sm font-medium text-slate-900 hidden md:block truncate max-w-xs">{currentDrawing?.name || "No drawing selected"}</h3>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-slate-500 hidden sm:inline">Scale:</span>
+                        <select className="text-xs border border-slate-300 rounded px-2 py-1" value={selectedScale} onChange={(e) => setSelectedScale(e.target.value)}>
+                          <option>1/4" = 1'</option>
+                          <option>1/8" = 1'</option>
+                          <option>1/2" = 1'</option>
+                          <option>1" = 1'</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <InteractiveFloorPlan drawing={currentDrawing} highlightedElement={highlightedElement} activeViewMode={activeViewMode} activeTool={activeTool} selectedScale={selectedScale} onElementClick={(elementId) => { if (activeTool === 'count') { toast({ title: "Element Counted", description: `Added ${elementId} to count` }); } else { console.log('Element clicked:', elementId); } }} onMeasurement={(measurement) => { toast({ title: "Measurement Added", description: `${measurement.type}: ${measurement.value}` }); }} />
-
-              {!currentDrawing && (<DrawingViewer drawing={currentDrawing} onFileUpload={handleFileUpload} />)}
+              
+              <InteractiveFloorPlan
+                drawing={currentDrawing}
+                highlightedElement={highlightedElement}
+                activeViewMode={activeViewMode}
+                activeTool={activeTool}
+                selectedScale={selectedScale}
+                onElementClick={() => {}}
+                onMeasurement={() => {}}
+              />
+              
+              {!currentDrawing && (
+                <DrawingViewer drawing={null} onFileUpload={handleFileUpload} isUploading={isUploading} />
+              )}
             </div>
 
             <div className="w-96 flex-col hidden lg:flex">
               <div className="bg-white p-4 border-b border-slate-200">
                 <div className="flex items-center space-x-3">
-                  <Button className="bg-green-600 hover:bg-green-700" size="sm"><Download className="w-4 h-4 mr-2" />Export Report</Button>
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm"><MessageSquare className="w-4 h-4 mr-2" />AI Assistant</Button>
+                    <Button className="bg-green-600 hover:bg-green-700" size="sm"><Download className="w-4 h-4 mr-2" />Export Report</Button>
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white" size="sm"><MessageSquare className="w-4 h-4 mr-2" />AI Assistant</Button>
                 </div>
               </div>
-
-              <RealtimeAnalysisPanel
-                drawing={currentDrawing}
-                selectedTypes={selectedTakeoffTypes}
-                isAnalyzing={isAnalyzing}
-                onStartAnalysis={handleRunAnalysis}
+              
+              <RealtimeAnalysisPanel 
+                drawing={currentDrawing} 
+                selectedTypes={selectedTakeoffTypes} 
+                isAnalyzing={isAnalyzing} 
+                onStartAnalysis={handleRunAnalysis} 
                 onElementHover={setHighlightedElement}
                 analysisResults={analysisResults}
               />

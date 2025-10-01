@@ -1,7 +1,7 @@
-// api/index.ts - UPDATED
-
+// api/index.ts (only add the marked block)
 import 'dotenv/config';
 import express from "express";
+import path from "path"; // <--- add
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -10,10 +10,14 @@ import { setupVite, serveStatic, log } from "./vite";
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
-  // This is the crucial step that loads all your API endpoints
+  // --- ADD: serve /uploads upfront (works in prod + dev) ---
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  app.use("/uploads", express.static(uploadsDir));
+  // ---------------------------------------------------------
+
+  // Load API endpoints and get server (HTTP)
   const server = await registerRoutes(app);
 
-  // This sets up the Vite dev server AFTER the API routes are registered
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {

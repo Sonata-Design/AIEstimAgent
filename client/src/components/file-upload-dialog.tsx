@@ -11,13 +11,14 @@ import {
 import type { Drawing } from "@shared/schema";
 
 interface FileUploadDialogProps {
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File) => Promise<void> | void;
+  isUploading?: boolean;
 }
 
-export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps) {
+export default function FileUploadDialog({ onFileUpload, isUploading }: FileUploadDialogProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [internalUploading, setInternalUploading] = useState(false);
   const { toast } = useToast();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -87,17 +88,15 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
   const handleUpload = async () => {
     if (uploadedFiles.length === 0) return;
     
-    setIsUploading(true);
+    setInternalUploading(true);
     const firstFile = uploadedFiles[0];
     
     try {
-      // Pass the file directly to the parent component
-      // The parent will handle the actual upload and drawing creation
-      onFileUpload(firstFile);
-      setIsUploading(false);
+      await onFileUpload(firstFile);
+      setInternalUploading(false);
     } catch (error) {
       console.error('File upload failed:', error);
-      setIsUploading(false);
+      setInternalUploading(false);
       toast({
         title: "Upload failed",
         description: error instanceof Error ? error.message : "Failed to upload file",
@@ -184,10 +183,10 @@ export default function FileUploadDialog({ onFileUpload }: FileUploadDialogProps
                 
                 <Button 
                   onClick={handleUpload}
-                  disabled={isUploading}
+                  disabled={isUploading ?? internalUploading}
                   className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
                 >
-                  {isUploading ? (
+                  {(isUploading ?? internalUploading) ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       Uploading...

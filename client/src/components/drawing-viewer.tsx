@@ -13,10 +13,11 @@ import type { Drawing } from "@shared/schema";
 
 interface DrawingViewerProps {
   drawing: Drawing | null;
-  onFileUpload?: (file: File) => void;
+  onFileUpload?: (file: File) => Promise<void> | void;
+  isUploading?: boolean;
 }
 
-export default function DrawingViewer({ drawing, onFileUpload }: DrawingViewerProps) {
+export default function DrawingViewer({ drawing, onFileUpload, isUploading }: DrawingViewerProps) {
   const [zoom, setZoom] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -54,7 +55,7 @@ export default function DrawingViewer({ drawing, onFileUpload }: DrawingViewerPr
   };
 
   if (!drawing) {
-    return <FileUploadDialog onFileUpload={onFileUpload || (() => {})} />;
+    return <FileUploadDialog onFileUpload={onFileUpload || (async () => {})} isUploading={isUploading} />;
   }
 
   const isProcessing = drawing.status === "processing";
