@@ -37,14 +37,19 @@ export default function Reports() {
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    queryFn: async () => {
+      const response = await fetch(createApiUrl("/api/projects"));
+      if (!response.ok) throw new Error("Failed to fetch projects");
+      return response.json();
+    },
   });
 
   // Get cost analysis for each project using our AI backend
   const projectAnalyses = useQuery({
-    queryKey: ["/api/project-analyses", (projects as Project[]).map((p: Project) => p.id)],
+    queryKey: ["/api/project-analyses", projects.map((p: Project) => p.id)],
     queryFn: async () => {
       const analyses = await Promise.all(
-        (projects as Project[]).map(async (project: Project) => {
+        projects.map(async (project: Project) => {
           try {
             const [costAnalysis, riskAssessment, costTrends] = await Promise.all([
               fetch(createApiUrl(`/api/projects/${project.id}/cost-analysis`)).then(r => r.json()),
@@ -65,14 +70,14 @@ export default function Reports() {
       );
       return analyses.filter(Boolean);
     },
-    enabled: (projects as Project[]).length > 0,
+    enabled: projects.length > 0,
   });
 
   const analysisData = projectAnalyses.data || [];
 
   // Calculate aggregate metrics from AI analysis
   const aggregateMetrics = {
-    totalProjects: (projects as Project[]).length,
+    totalProjects: projects.length,
     totalCost: analysisData.reduce((sum: number, item: any) => sum + (item?.costAnalysis?.totalCost || 0), 0),
     avgEfficiencyScore: analysisData.length > 0 ? 
       analysisData.reduce((sum: number, item: any) => sum + (item?.costAnalysis?.overallScore || 0), 0) / analysisData.length : 0,
@@ -154,7 +159,7 @@ export default function Reports() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
-                {(projects as Project[]).map((project: Project) => (
+                {projects.map((project: Project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
                   </SelectItem>
@@ -256,7 +261,7 @@ export default function Reports() {
                 <CardContent>
                   <div className="space-y-4">
                     {Object.entries(efficiencyDistribution).map(([level, count]: [string, number]) => {
-                      const percentage = (projects as Project[]).length > 0 ? (count / (projects as Project[]).length) * 100 : 0;
+                      const percentage = projects.length > 0 ? (count / projects.length) * 100 : 0;
                       const colors = {
                         excellent: 'bg-green-500',
                         good: 'bg-blue-500', 
@@ -299,7 +304,7 @@ export default function Reports() {
                 <CardContent>
                   <div className="space-y-4">
                     {Object.entries(riskDistribution).map(([level, count]: [string, number]) => {
-                      const percentage = (projects as Project[]).length > 0 ? (count / (projects as Project[]).length) * 100 : 0;
+                      const percentage = projects.length > 0 ? (count / projects.length) * 100 : 0;
                       const colors = {
                         low: 'bg-green-500',
                         medium: 'bg-yellow-500',

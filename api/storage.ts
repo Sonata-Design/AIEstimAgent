@@ -404,7 +404,7 @@ export class DatabaseStorage implements IStorage {
     
     // Delete the project
     const result = await db.delete(projects).where(eq(projects.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Drawings
@@ -475,7 +475,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTakeoff(id: string): Promise<boolean> {
     const result = await db.delete(takeoffs).where(eq(takeoffs.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Material Costs
@@ -524,7 +524,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSavedAnalysis(id: string): Promise<boolean> {
     const result = await db.delete(savedAnalyses).where(eq(savedAnalyses.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Trade Classes
@@ -556,7 +556,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTradeClass(id: string): Promise<boolean> {
     const result = await db.delete(tradeClasses).where(eq(tradeClasses.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Product SKUs
@@ -602,7 +602,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProductSku(id: string): Promise<boolean> {
     const result = await db.delete(productSkus).where(eq(productSkus.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Project Pricing
@@ -634,7 +634,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProjectPricing(id: string): Promise<boolean> {
     const result = await db.delete(projectPricing).where(eq(projectPricing.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Estimate Templates
@@ -670,7 +670,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEstimateTemplate(id: string): Promise<boolean> {
     const result = await db.delete(estimateTemplates).where(eq(estimateTemplates.id, id));
-    return (result.rowCount ?? 0) > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Regional Cost Database Methods
