@@ -15,6 +15,8 @@ import {
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
+const PYTHON_API = process.env.VITE_ML_URL || "http://127.0.0.1:8000";
+
 
 // Uploader for proxying to AI service (uses memory)
 const memoryUpload = multer({
@@ -59,7 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       fd.append("types", req.body.types);
       fd.append("scale", req.body.scale);
 
-      const pythonApi = "http://127.0.0.1:8000/analyze";
+      const pythonApi = `${PYTHON_API}/analyze`;
       console.log("[API] Forwarding to Python service:", pythonApi);
 
       const r = await axios.post(pythonApi, fd, {

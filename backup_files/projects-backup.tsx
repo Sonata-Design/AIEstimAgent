@@ -1,36 +1,36 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import Layout from "@/components/layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { Checkbox } from "@/components/ui/checkbox";
+import Layout from "../client/src/components/layout";
+import { Button } from "../client/src/components/ui/button";
+import { Input } from "../client/src/components/ui/input";
+import { Label } from "../client/src/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "../client/src/components/ui/card";
+import { Badge } from "../client/src/components/ui/badge";
+import { useToast } from "../client/src/hooks/use-toast";
+import { apiRequest } from "../client/src/lib/queryClient";
+import { Checkbox } from "../client/src/components/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "../client/src/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../client/src/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "../client/src/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "../client/src/components/ui/alert-dialog";
 import { 
   Plus, 
   Building, 
@@ -61,7 +61,7 @@ import {
   CheckCircle2,
   Clock
 } from "lucide-react";
-import type { Project, InsertProject } from "@shared/schema";
+import type { Project, InsertProject } from "../shared/schema";
 
 export default function Projects() {
   const [, setLocation] = useLocation();
@@ -778,203 +778,6 @@ export default function Projects() {
               disabled={deleteProjectMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
               data-testid="button-confirm-delete-project"
-            >
-              {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Layout>
-  );
-}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProject(project);
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteProject(project);
-                            }}
-                            className="text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {project.location && (
-                    <div className="flex items-center space-x-2 text-sm text-slate-600">
-                      <MapPin className="w-4 h-4" />
-                      <span>{project.location}</span>
-                    </div>
-                  )}
-                  
-                  {project.client && (
-                    <div className="flex items-center space-x-2 text-sm text-slate-600">
-                      <Building className="w-4 h-4" />
-                      <span>{project.client}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center space-x-2 text-sm text-slate-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>Created {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'Unknown'}</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <FileImage className="w-4 h-4 text-slate-400" />
-                      </div>
-                      <div className="text-sm font-medium text-slate-900">3</div>
-                      <div className="text-xs text-slate-500">Drawings</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <Activity className="w-4 h-4 text-slate-400" />
-                      </div>
-                      <div className="text-sm font-medium text-slate-900">85%</div>
-                      <div className="text-xs text-slate-500">Processed</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <Building className="w-4 h-4 text-slate-400" />
-                      </div>
-                      <div className="text-sm font-medium text-slate-900">$247K</div>
-                      <div className="text-xs text-slate-500">Estimated</div>
-                    </div>
-                  </div>
-
-
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {!isLoading && projects.length === 0 && (
-          <div className="text-center py-12">
-            <Building className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No Projects Yet</h3>
-            <p className="text-slate-600 mb-6">Create your first construction project to get started with AI takeoffs.</p>
-            <Button 
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-blueprint-600 hover:bg-blueprint-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create First Project
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Edit Project Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-project-name">Project Name</Label>
-              <Input
-                id="edit-project-name"
-                value={editProject.name}
-                onChange={(e) => setEditProject({ ...editProject, name: e.target.value })}
-                placeholder="Enter project name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-project-location">Location</Label>
-              <Input
-                id="edit-project-location"
-                value={editProject.location || ""}
-                onChange={(e) => setEditProject({ ...editProject, location: e.target.value })}
-                placeholder="Enter project location"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-project-client">Client</Label>
-              <Input
-                id="edit-project-client"
-                value={editProject.client || ""}
-                onChange={(e) => setEditProject({ ...editProject, client: e.target.value })}
-                placeholder="Enter client name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-project-description">Description</Label>
-              <Input
-                id="edit-project-description"
-                value={editProject.description || ""}
-                onChange={(e) => setEditProject({ ...editProject, description: e.target.value })}
-                placeholder="Enter project description"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-project-status">Status</Label>
-              <select
-                id="edit-project-status"
-                value={editProject.status}
-                onChange={(e) => setEditProject({ ...editProject, status: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-              >
-                <option value="active">Active</option>
-                <option value="on-hold">On Hold</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-            <div className="flex space-x-2 pt-4">
-              <Button
-                onClick={handleUpdateProject}
-                disabled={updateProjectMutation.isPending}
-                className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
-              >
-                {updateProjectMutation.isPending ? "Updating..." : "Update Project"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{selectedProject?.name}"? 
-              This action cannot be undone and will permanently delete all project data, 
-              drawings, and takeoffs.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteProject}
-              className="bg-red-600 hover:bg-red-700 text-white"
-              disabled={deleteProjectMutation.isPending}
             >
               {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
             </AlertDialogAction>
