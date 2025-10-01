@@ -1,262 +1,257 @@
-# ml/app.py  — FULL UPDATED
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+# ml/app.py
+from __future__ import annotations
+
+import io
 import os
-import shutil
-import json
-import math
-from typing import List, Dict, Any, Tuple
-from fastapi import FastAPI, File, UploadFile, Form
+import uuid
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from PIL import Image
 from dotenv import load_dotenv
+
+# Roboflow Inference SDK (provided by the 'inference' package you installed)
+# The package name is `inference`, but the module you import is `inference_sdk`.
 from inference_sdk import InferenceHTTPClient
+
+# ------------------------------------------------------------------------------
+# Env & constants
+# ------------------------------------------------------------------------------
 
 load_dotenv()
 
-app = FastAPI()
+# Provide sane defaults but allow overriding via Render env vars
+ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
+DEFAULT_MODEL_ID = os.getenv("DEFAULT_MODEL_ID", "")  # e.g. "workspace/project:version"
 
-app = FastAPI(title="AIEstimAgent API")
+# If you want to keep multiple models (floors/columns/walls), set these in Render
+FLOOR_MODEL_ID = os.getenv("FLOOR_MODEL_ID", os.getenv("MODEL_FLOOR_ID", ""))
+COLUMN_MODEL_ID = os.getenv("COLUMN_MODEL_ID", os.getenv("MODEL_COLUMN_ID", ""))
+WALL_MODEL_ID = os.getenv("WALL_MODEL_ID", os.getenv("MODEL_WALL_ID", ""))
 
-@app.get("/", include_in_schema=False)
-async def root():
-    # send browsers to the interactive Swagger UI
-    return RedirectResponse(url="/docs")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/opt/render/project/src/uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@app.get("/health", include_in_schema=False)
-async def health():
-    return {"status": "ok"}
+# ------------------------------------------------------------------------------
+# App
+# ------------------------------------------------------------------------------
+
+app = FastAPI(title="AIEstimAgent — ML API", version="1.0.0")
+
+# CORS (relaxed; tighten for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:5001"],
+    allow_origins=os.getenv("CORS_ALLOW_ORIGINS", "*").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-ROOM_API_KEY = os.getenv("ROOM_API_KEY")
-ROOM_WORKSPACE = os.getenv("ROOM_WORKSPACE")
-ROOM_PROJECT = os.getenv("ROOM_PROJECT")
-ROOM_VERSION = os.getenv("ROOM_VERSION")
+# ------------------------------------------------------------------------------
+# Utilities
+# ------------------------------------------------------------------------------
 
-WALL_API_KEY = os.getenv("WALL_API_KEY")
-WALL_WORKSPACE = os.getenv("WALL_WORKSPACE")
-WALL_PROJECT = os.getenv("WALL_PROJECT")
-WALL_VERSION = os.getenv("WALL_VERSION")
+def _get_client(api_key: Optional[str] = None) -> InferenceHTTPClient:
+    key = (api_key or ROBOFLOW_API_KEY or "").strip()
+    if not key:
+        raise RuntimeError(
+            "Missing ROBOFLOW_API_KEY. Set it in Render -> Environment."
+        )
+    return InferenceHTTPClient(
+        api_url="https://detect.roboflow.com",
+        api_key=key,
+    )
 
-DOORWINDOW_API_KEY = os.getenv("DOORWINDOW_API_KEY")
-DOORWINDOW_WORKSPACE = os.getenv("DOORWINDOW_WORKSPACE")
-DOORWINDOW_PROJECT = os.getenv("DOORWINDOW_PROJECT")
-DOORWINDOW_VERSION = os.getenv("DOORWINDOW_VERSION")
+def _save_upload(upload: UploadFile) -> str:
+    # Save to disk (Render ephemeral fs, OK for runtime)
+    suffix = os.path.splitext(upload.filename or "")[-1] or ".bin"
+    path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}{suffix}")
+    with open(path, "wb") as f:
+        f.write(upload.file.read())
+    return path
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+def _image_size_from_bytes(data: bytes) -> tuple[int, int]:
+    with Image.open(io.BytesIO(data)) as im:
+        return im.width, im.height
 
-def _shoelace_area(points: List[Tuple[float, float]]) -> float:
-    # polygon area (pixels^2)
-    if len(points) < 3:
-        return 0.0
-    s = 0.0
-    for i in range(len(points)):
-        x1, y1 = points[i]
-        x2, y2 = points[(i + 1) % len(points)]
-        s += x1 * y2 - x2 * y1
-    return abs(s) / 2.0
-
-def _poly_perimeter(points: List[Tuple[float, float]]) -> float:
-    if len(points) < 2:
-        return 0.0
-    d = 0.0
-    for i in range(len(points)):
-        x1, y1 = points[i]
-        x2, y2 = points[(i + 1) % len(points)]
-        d += math.hypot(x2 - x1, y2 - y1)
-    return d
-
-def _rect_to_points(x: float, y: float, w: float, h: float) -> List[Tuple[float, float]]:
-    # Roboflow bbox often gives center x,y + width + height. Convert to rect points clockwise.
-    x0 = x - w / 2.0
-    y0 = y - h / 2.0
-    return [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
-
-def _norm_mask(points: List[Tuple[float, float]], img_w: int, img_h: int) -> List[Dict[str, float]]:
-    # normalize to [0..1] so frontend can scale easily
-    return [{"x": p[0] / img_w, "y": p[1] / img_h} for p in points]
-
-def _bbox_metrics(x: float, y: float, w: float, h: float) -> Dict[str, float]:
-    area = w * h
-    perimeter = 2 * (w + h)
-    return {"area_px2": area, "perimeter_px": perimeter, "width_px": w, "height_px": h}
-
-def run_inference(api_key: str, workspace: str, project: str, version: str, image_path: str):
-    if not all([api_key, workspace, project, version]):
-        return {"error": f"Missing API config for {project}"}
-    try:
-        client = InferenceHTTPClient(api_url="https://outline.roboflow.com", api_key=api_key)
-        model_id = f"{project}/{version}"
-        print(f"[DEBUG] Running: {model_id}")
-        result = client.infer(image_path, model_id=model_id)
-        return result
-    except Exception as e:
-        return {"error": str(e)}
-
-def _shape_items(result: Dict[str, Any], category: str, img_w: int, img_h: int) -> List[Dict[str, Any]]:
+def _normalize_predictions(
+    raw: Dict[str, Any],
+    img_w: int,
+    img_h: int,
+) -> List[Dict[str, Any]]:
     """
-    Reshape raw roboflow response into per-object items with geometry.
-    Expects predictions list with either:
-      - bbox: x, y, width, height
-      - polygon: 'points' ([[x,y], ...])
+    Roboflow responses can include `x, y, width, height` or `points` for polygons.
+    We keep both styles but also add normalized [0..1] coordinates for convenience.
     """
-    items: List[Dict[str, Any]] = []
-    preds = result.get("predictions", []) if isinstance(result, dict) else []
-    for i, p in enumerate(preds):
-        cls = p.get("class") or p.get("label") or category
-        conf = float(p.get("confidence", 0.0))
-
-        # figure out polygon
-        points = p.get("points")  # segmentation points (if any)
-        if points and isinstance(points, list) and len(points) >= 3:
-            # Debug: print the actual structure of points
-            print(f"[DEBUG] Points structure for {cls}: {points[:2]}...")  # Show first 2 points
-            
-            # Handle different point formats from Roboflow API
-            try:
-                if isinstance(points[0], dict) and 'x' in points[0] and 'y' in points[0]:
-                    # Format: [{"x": 100, "y": 200}, ...]
-                    poly = [(float(px['x']), float(px['y'])) for px in points]
-                elif isinstance(points[0], list) and len(points[0]) >= 2:
-                    # Format: [[100, 200], ...]
-                    poly = [(float(px[0]), float(px[1])) for px in points]
-                else:
-                    # Fallback: try to extract x,y from whatever format
-                    poly = []
-                    for px in points:
-                        if hasattr(px, '__getitem__') and len(px) >= 2:
-                            poly.append((float(px[0]), float(px[1])))
-                        elif isinstance(px, dict):
-                            x = px.get('x') or px.get(0)
-                            y = px.get('y') or px.get(1)
-                            if x is not None and y is not None:
-                                poly.append((float(x), float(y)))
-                    
-                if not poly:
-                    raise ValueError("Could not parse points format")
-                        
-            except (KeyError, IndexError, TypeError, ValueError) as e:
-                print(f"[ERROR] Failed to parse points for {cls}: {e}")
-                print(f"[ERROR] Points sample: {points[:3] if len(points) > 3 else points}")
-                # Fall back to bbox processing
-                points = None
-                
-        if points and isinstance(points, list) and len(points) >= 3:
-            area = _shoelace_area(poly)
-            perim = _poly_perimeter(poly)
-            width = max(px for px, _ in poly) - min(px for px, _ in poly)
-            height = max(py for _, py in poly) - min(py for _, py in poly)
-            mask = _norm_mask(poly, img_w, img_h)
-            bbox_metrics = {
-                "area_px2": area,
-                "perimeter_px": perim,
-                "width_px": width,
-                "height_px": height,
-            }
-        else:
-            # fall back to bbox
-            x = float(p.get("x", 0.0))
-            y = float(p.get("y", 0.0))
-            w = float(p.get("width", 0.0))
-            h = float(p.get("height", 0.0))
-            rect = _rect_to_points(x, y, w, h)
-            mask = _norm_mask(rect, img_w, img_h)
-            bbox_metrics = _bbox_metrics(w=w, h=h, x=x, y=y)
-
-        item = {
-            "id": f"{category}-{i}",
-            "class": cls,
-            "confidence": conf,
-            "category": category,
-            "metrics": bbox_metrics,
-            "mask": mask,  # normalized polygon points
+    preds = raw.get("predictions", []) or raw.get("data", {}).get("predictions", [])
+    out: List[Dict[str, Any]] = []
+    for p in preds:
+        item: Dict[str, Any] = {
+            "class": p.get("class") or p.get("label"),
+            "confidence": float(p.get("confidence", 0.0)),
         }
 
-        # Category-specific extras for the sidebar
-        if category in ("openings", "doors", "windows"):
-            item["display"] = {
-                "width": bbox_metrics["width_px"],
-                "height": bbox_metrics["height_px"],
-            }
-        elif category in ("rooms", "flooring"):
-            item["display"] = {
-                "area": bbox_metrics["area_px2"],
-                "perimeter": bbox_metrics["perimeter_px"],
-            }
-            # Provide editable default name
-            item["name"] = cls.capitalize()
-        elif category == "walls":
-            # Heuristic: use polygon perimeter as “outer”, bbox 2*(w+h) as “inner”
-            outer_p = bbox_metrics["perimeter_px"]
-            inner_p = max(0.0, outer_p * 0.94)  # tiny reduction as a placeholder
-            item["display"] = {
-                "inner_perimeter": inner_p,
-                "outer_perimeter": outer_p,
-            }
+        # Bounding box variant
+        if all(k in p for k in ("x", "y", "width", "height")):
+            x = float(p["x"])
+            y = float(p["y"])
+            w = float(p["width"])
+            h = float(p["height"])
+            item.update(
+                {
+                    "bbox": {"x": x, "y": y, "w": w, "h": h},
+                    "bbox_norm": {
+                        "x": x / img_w if img_w else 0.0,
+                        "y": y / img_h if img_h else 0.0,
+                        "w": w / img_w if img_w else 0.0,
+                        "h": h / img_h if img_h else 0.0,
+                    },
+                }
+            )
 
-        items.append(item)
-    return items
+        # Polygon variant
+        if "points" in p and isinstance(p["points"], list):
+            pts = p["points"]
+            item["points"] = pts
+            item["points_norm"] = [
+                {"x": pt["x"] / img_w, "y": pt["y"] / img_h}
+                for pt in pts
+                if isinstance(pt, dict) and "x" in pt and "y" in pt and img_w and img_h
+            ]
 
-def _image_dims(path: str) -> Tuple[int, int]:
-    # lightweight PIL-free approach: try to import Pillow if available
+        out.append(item)
+    return out
+
+def _infer_image(
+    image_path: str,
+    model_id: str,
+    api_key: Optional[str] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    Calls Roboflow Inference API for a single model_id.
+    `model_id` format: "workspace/project:version"
+    """
+    client = _get_client(api_key)
+    # You can pass extra params like `confidence`, `overlap`, `visualize`, etc. via kwargs.
+    return client.infer(image_path, model_id=model_id, **kwargs)
+
+# ------------------------------------------------------------------------------
+# Routes
+# ------------------------------------------------------------------------------
+
+@app.get("/", response_class=JSONResponse)
+def root() -> Dict[str, Any]:
+    """
+    Simple index so Render doesn't 404 and you get a quick health view.
+    """
+    return {
+        "name": "AIEstimAgent — ML API",
+        "status": "ok",
+        "docs": "/docs",
+        "endpoints": ["/healthz", "/analyze"],
+    }
+
+@app.head("/", response_class=PlainTextResponse)
+def head_root():
+    return PlainTextResponse("ok", status_code=200)
+
+@app.get("/healthz", response_class=PlainTextResponse)
+def healthz():
+    return PlainTextResponse("ok", status_code=200)
+
+@app.post("/analyze", response_class=JSONResponse)
+async def analyze(
+    file: UploadFile = File(..., description="Image file (plans/photo)"),
+    # choose one explicit model (takes precedence) OR let switches run multiple
+    model_id: Optional[str] = Form(
+        None,
+        description='Roboflow model id like "workspace/project:version". Overrides switches below if provided.',
+    ),
+    # optional switches to run multiple models in one call
+    detect_floors: bool = Form(True),
+    detect_columns: bool = Form(True),
+    detect_walls: bool = Form(True),
+    # optional numeric helpers you might post from the UI
+    scale: Optional[float] = Form(
+        None, description="Scale in units per pixel (optional; echoed back)."
+    ),
+    # optional inference params
+    confidence: Optional[float] = Form(None),
+    overlap: Optional[float] = Form(None),
+) -> Dict[str, Any]:
+    """
+    Upload an image and run Roboflow inference.
+    You can either:
+      - pass one explicit `model_id`, or
+      - let the service run any of the configured switches (floors/columns/walls).
+    """
     try:
-        from PIL import Image
-        with Image.open(path) as im:
-            return im.width, im.height
-    except Exception:
-        # fallback: assume common size if unknown
-        return (2000, 1500)
+        # Read bytes for quick dimension probe; also save a temp file for inference call
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="Empty upload.")
 
-@app.post("/analyze")
-async def analyze(file: UploadFile = File(...), types: str = Form(...), scale: str = Form(default="1/4\" = 1'")):
-    selected_types = json.loads(types)
+        img_w, img_h = _image_size_from_bytes(data)
 
-    save_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(save_path, "wb") as buf:
-        shutil.copyfileobj(file.file, buf)
+        ext = os.path.splitext(file.filename or "")[-1].lower() or ".jpg"
+        temp_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}{ext}")
+        with open(temp_path, "wb") as f:
+            f.write(data)
 
-    img_w, img_h = _image_dims(save_path)
-    predictions = {}
-    errors = {}
+        # Common kwargs to inference call
+        infer_kwargs: Dict[str, Any] = {}
+        if confidence is not None:
+            infer_kwargs["confidence"] = confidence
+        if overlap is not None:
+            infer_kwargs["overlap"] = overlap
 
-    # Doors & Windows
-    if "openings" in selected_types:
-        r = run_inference(DOORWINDOW_API_KEY, DOORWINDOW_WORKSPACE, DOORWINDOW_PROJECT, DOORWINDOW_VERSION, save_path)
-        if "error" in r:
-            errors["openings"] = r["error"]
-            predictions["openings"] = []
-        else:
-            predictions["openings"] = _shape_items(r, "openings", img_w, img_h)
+        results: Dict[str, Any] = {
+            "image": {"width": img_w, "height": img_h},
+            "scale": scale,
+            "filename": file.filename,
+            "models": {},
+        }
 
-    # Rooms / Flooring
-    if "flooring" in selected_types:
-        r = run_inference(ROOM_API_KEY, ROOM_WORKSPACE, ROOM_PROJECT, ROOM_VERSION, save_path)
-        if "error" in r:
-            errors["rooms"] = r["error"]
-            predictions["rooms"] = []
-        else:
-            predictions["rooms"] = _shape_items(r, "rooms", img_w, img_h)
+        # If explicit model_id is provided, only run that one
+        if model_id:
+            raw = _infer_image(temp_path, model_id=model_id, **infer_kwargs)
+            results["models"][model_id] = _normalize_predictions(raw, img_w, img_h)
+            return results
 
-    # Walls
-    if "walls" in selected_types:
-        r = run_inference(WALL_API_KEY, WALL_WORKSPACE, WALL_PROJECT, WALL_VERSION, save_path)
-        if "error" in r:
-            errors["walls"] = r["error"]
-            predictions["walls"] = []
-        else:
-            predictions["walls"] = _shape_items(r, "walls", img_w, img_h)
+        # Otherwise, use the configured switches (if their env var exists)
+        errors: Dict[str, str] = {}
 
-    return JSONResponse({
-        "filename": file.filename,
-        "image": {"width": img_w, "height": img_h},
-        "scale": scale,
-        "predictions": predictions,
-        "errors": errors
-    })
+        def maybe_run(_switch: bool, _model: str | None, _name: str):
+            if not _switch:
+                return
+            if not _model:
+                errors[_name] = f"{_name} model not configured"
+                return
+            try:
+                raw = _infer_image(temp_path, model_id=_model, **infer_kwargs)
+                results["models"][_name] = _normalize_predictions(raw, img_w, img_h)
+            except Exception as e:  # noqa: BLE001
+                errors[_name] = str(e)
+
+        maybe_run(detect_floors, FLOOR_MODEL_ID, "floors")
+        maybe_run(detect_columns, COLUMN_MODEL_ID, "columns")
+        maybe_run(detect_walls, WALL_MODEL_ID, "walls")
+
+        if errors:
+            results["errors"] = errors
+
+        return results
+
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Convenience: allow Render’s periodic HEAD health probe on /analyze (return 200 quickly)
+@app.head("/analyze", response_class=PlainTextResponse)
+def head_analyze():
+    return PlainTextResponse("ok", status_code=200)
