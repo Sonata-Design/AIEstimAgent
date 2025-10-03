@@ -15,7 +15,7 @@ import {
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
-const PYTHON_API = process.env.VITE_ML_URL || "http://127.0.0.1:8000";
+const PYTHON_API = process.env.ML_API_URL || process.env.VITE_ML_URL || "http://127.0.0.1:8000";
 
 
 // Uploader for proxying to AI service (uses memory)

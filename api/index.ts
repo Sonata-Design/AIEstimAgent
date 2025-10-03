@@ -2,6 +2,10 @@ import { registerRoutes } from "./routes.js";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import { config } from "dotenv";
+
+// Load environment variables from .env file (look in parent directory)
+config({ path: path.resolve(process.cwd(), '.env') });
 
 // Needed when using ES modules (so __dirname works)
 const __filename = fileURLToPath(import.meta.url);

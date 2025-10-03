@@ -4,7 +4,7 @@ dist
 api /public
 vite.config.ts.*
 *.tar.gz
-.env
+# .env
 uploads/
 ml/venv/
 __pycache__/

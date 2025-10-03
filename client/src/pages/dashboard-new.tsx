@@ -60,10 +60,19 @@ export default function Dashboard() {
       const imageBlob = await response.blob();
       const imageFile = new File([imageBlob], currentDrawing.filename!, { type: imageBlob.type });
 
+      // Convert scale string to numeric value (e.g., "1/4\" = 1'" -> 0.25)
+      const scaleMap: { [key: string]: number } = {
+        '1/4" = 1\'': 0.25,
+        '1/8" = 1\'': 0.125,
+        '1/2" = 1\'': 0.5,
+        '1" = 1\'': 1.0,
+      };
+      const scaleValue = scaleMap[selectedScale] || 0.25;
+
       const formData = new FormData();
       formData.append('file', imageFile);
       formData.append('types', JSON.stringify(typesToAnalyze));
-      formData.append('scale', selectedScale);
+      formData.append('scale', scaleValue.toString());
 
       const results = await apiRequest('/api/analyze', 'POST', formData, true);
 

@@ -1,10 +1,15 @@
 services:
   - type: web
-    name: aiestim-agent-api
-    env: python
-    rootDir: ml
-    pythonVersion: 3.11.9
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
-    plan: free
+    name: aiestimagent-api
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: VITE_API_URL
+        value: https://aiestimagent-api.onrender.com
+      - key: VITE_ML_URL
+        value: https://aiestimagent.onrender.com

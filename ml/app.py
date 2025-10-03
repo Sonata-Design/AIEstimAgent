@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import uuid
 from typing import Any, Dict, List, Optional
@@ -11,9 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from PIL import Image
 from dotenv import load_dotenv
-
-# Roboflow Inference SDK (provided by the 'inference' package you installed)
-# The package name is `inference`, but the module you import is `inference_sdk`.
 from inference_sdk import InferenceHTTPClient
 
 # ------------------------------------------------------------------------------
@@ -22,14 +20,37 @@ from inference_sdk import InferenceHTTPClient
 
 load_dotenv()
 
-# Provide sane defaults but allow overriding via Render env vars
-ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
-DEFAULT_MODEL_ID = os.getenv("DEFAULT_MODEL_ID", "")  # e.g. "workspace/project:version"
+# Room Detection Model - detects only rooms
+ROOM_API_KEY = os.getenv("ROOM_API_KEY", "")
+ROOM_WORKSPACE = os.getenv("ROOM_WORKSPACE", "")
+ROOM_PROJECT = os.getenv("ROOM_PROJECT", "")  # room-detection-r0fta
+ROOM_VERSION = os.getenv("ROOM_VERSION", "")
 
-# If you want to keep multiple models (floors/columns/walls), set these in Render
-FLOOR_MODEL_ID = os.getenv("FLOOR_MODEL_ID", os.getenv("MODEL_FLOOR_ID", ""))
-COLUMN_MODEL_ID = os.getenv("COLUMN_MODEL_ID", os.getenv("MODEL_COLUMN_ID", ""))
-WALL_MODEL_ID = os.getenv("WALL_MODEL_ID", os.getenv("MODEL_WALL_ID", ""))
+# Wall Detection Model - detects only walls
+WALL_API_KEY = os.getenv("WALL_API_KEY", "")
+WALL_WORKSPACE = os.getenv("WALL_WORKSPACE", "")
+WALL_PROJECT = os.getenv("WALL_PROJECT", "")  # mytoolllaw-6vckj
+WALL_VERSION = os.getenv("WALL_VERSION", "")
+
+# Door & Window Model - detects doors and windows (filters out room/wall from this model)
+DOORWINDOW_API_KEY = os.getenv("DOORWINDOW_API_KEY", "")
+DOORWINDOW_WORKSPACE = os.getenv("DOORWINDOW_WORKSPACE", "")
+DOORWINDOW_PROJECT = os.getenv("DOORWINDOW_PROJECT", "")  # mytool-i6igr
+DOORWINDOW_VERSION = os.getenv("DOORWINDOW_VERSION", "")
+
+# Construct model IDs from environment variables
+# Format: "workspace/project/version"
+ROOM_MODEL_ID = ""
+if ROOM_WORKSPACE and ROOM_PROJECT and ROOM_VERSION:
+    ROOM_MODEL_ID = f"{ROOM_WORKSPACE}/{ROOM_PROJECT}/{ROOM_VERSION}"
+
+WALL_MODEL_ID = ""
+if WALL_WORKSPACE and WALL_PROJECT and WALL_VERSION:
+    WALL_MODEL_ID = f"{WALL_WORKSPACE}/{WALL_PROJECT}/{WALL_VERSION}"
+
+DOORWINDOW_MODEL_ID = ""
+if DOORWINDOW_WORKSPACE and DOORWINDOW_PROJECT and DOORWINDOW_VERSION:
+    DOORWINDOW_MODEL_ID = f"{DOORWINDOW_WORKSPACE}/{DOORWINDOW_PROJECT}/{DOORWINDOW_VERSION}"
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/opt/render/project/src/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -54,23 +75,17 @@ app.add_middleware(
 # ------------------------------------------------------------------------------
 
 def _get_client(api_key: Optional[str] = None) -> InferenceHTTPClient:
-    key = (api_key or ROBOFLOW_API_KEY or "").strip()
+    """Get Roboflow inference client with API key."""
+    key = (api_key or ROOM_API_KEY or WALL_API_KEY or DOORWINDOW_API_KEY or "").strip()
     if not key:
         raise RuntimeError(
-            "Missing ROBOFLOW_API_KEY. Set it in Render -> Environment."
+            "Missing API KEY. Set ROOM_API_KEY, WALL_API_KEY, or DOORWINDOW_API_KEY in your .env file."
         )
     return InferenceHTTPClient(
         api_url="https://detect.roboflow.com",
         api_key=key,
     )
 
-def _save_upload(upload: UploadFile) -> str:
-    # Save to disk (Render ephemeral fs, OK for runtime)
-    suffix = os.path.splitext(upload.filename or "")[-1] or ".bin"
-    path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}{suffix}")
-    with open(path, "wb") as f:
-        f.write(upload.file.read())
-    return path
 
 def _image_size_from_bytes(data: bytes) -> tuple[int, int]:
     with Image.open(io.BytesIO(data)) as im:
@@ -80,16 +95,29 @@ def _normalize_predictions(
     raw: Dict[str, Any],
     img_w: int,
     img_h: int,
+    filter_classes: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Roboflow responses can include `x, y, width, height` or `points` for polygons.
-    We keep both styles but also add normalized [0..1] coordinates for convenience.
+    Normalize Roboflow predictions and optionally filter by class names.
+    
+    Args:
+        raw: Raw response from Roboflow API
+        img_w: Image width
+        img_h: Image height
+        filter_classes: If provided, only include predictions with these class names
     """
     preds = raw.get("predictions", []) or raw.get("data", {}).get("predictions", [])
     out: List[Dict[str, Any]] = []
+    
     for p in preds:
+        class_name = p.get("class") or p.get("label")
+        
+        # Filter by class if specified
+        if filter_classes and class_name not in filter_classes:
+            continue
+            
         item: Dict[str, Any] = {
-            "class": p.get("class") or p.get("label"),
+            "class": class_name,
             "confidence": float(p.get("confidence", 0.0)),
         }
 
@@ -162,34 +190,60 @@ def head_root():
 def healthz():
     return PlainTextResponse("ok", status_code=200)
 
+@app.get("/config", response_class=JSONResponse)
+def config() -> Dict[str, Any]:
+    """
+    Debug endpoint to check model configuration.
+    """
+    return {
+        "room_model_id": ROOM_MODEL_ID or "NOT CONFIGURED",
+        "wall_model_id": WALL_MODEL_ID or "NOT CONFIGURED",
+        "doorwindow_model_id": DOORWINDOW_MODEL_ID or "NOT CONFIGURED",
+        "has_room_api_key": bool(ROOM_API_KEY),
+        "has_wall_api_key": bool(WALL_API_KEY),
+        "has_doorwindow_api_key": bool(DOORWINDOW_API_KEY),
+        "models": {
+            "rooms": "Detects only room objects",
+            "walls": "Detects only wall objects",
+            "doors_windows": "Detects doors and windows (filters out rooms/walls)"
+        }
+    }
+
 @app.post("/analyze", response_class=JSONResponse)
 async def analyze(
     file: UploadFile = File(..., description="Image file (plans/photo)"),
-    # choose one explicit model (takes precedence) OR let switches run multiple
-    model_id: Optional[str] = Form(
-        None,
-        description='Roboflow model id like "workspace/project:version". Overrides switches below if provided.',
-    ),
-    # optional switches to run multiple models in one call
-    detect_floors: bool = Form(True),
-    detect_columns: bool = Form(True),
-    detect_walls: bool = Form(True),
-    # optional numeric helpers you might post from the UI
-    scale: Optional[float] = Form(
-        None, description="Scale in units per pixel (optional; echoed back)."
-    ),
-    # optional inference params
+    types: Optional[str] = Form(None, description="JSON array of types to analyze"),
+    scale: Optional[float] = Form(None, description="Scale in units per pixel"),
     confidence: Optional[float] = Form(None),
     overlap: Optional[float] = Form(None),
 ) -> Dict[str, Any]:
     """
-    Upload an image and run Roboflow inference.
-    You can either:
-      - pass one explicit `model_id`, or
-      - let the service run any of the configured switches (floors/columns/walls).
+    Upload an image and run Roboflow inference for rooms, walls, doors, and windows.
+    
+    Models:
+    - rooms: Uses ROOM_MODEL (detects only rooms)
+    - walls: Uses WALL_MODEL (detects only walls)
+    - doors/windows: Uses DOORWINDOW_MODEL (filters to only doors and windows)
     """
     try:
-        # Read bytes for quick dimension probe; also save a temp file for inference call
+        # Parse types parameter (frontend sends JSON array)
+        types_to_analyze = []
+        if types:
+            try:
+                types_to_analyze = json.loads(types)
+            except json.JSONDecodeError:
+                types_to_analyze = []
+        
+        # Default to all types if none specified
+        if not types_to_analyze:
+            types_to_analyze = ["rooms", "walls", "doors", "windows"]
+        
+        # Determine which models to run
+        detect_rooms = any(t in types_to_analyze for t in ["rooms", "floors"])
+        detect_walls = "walls" in types_to_analyze
+        detect_doors_windows = any(t in types_to_analyze for t in ["doors", "windows", "columns"])
+        
+        # Read and save image
         data = await file.read()
         if not data:
             raise HTTPException(status_code=400, detail="Empty upload.")
@@ -201,7 +255,7 @@ async def analyze(
         with open(temp_path, "wb") as f:
             f.write(data)
 
-        # Common kwargs to inference call
+        # Inference kwargs
         infer_kwargs: Dict[str, Any] = {}
         if confidence is not None:
             infer_kwargs["confidence"] = confidence
@@ -214,31 +268,42 @@ async def analyze(
             "filename": file.filename,
             "models": {},
         }
-
-        # If explicit model_id is provided, only run that one
-        if model_id:
-            raw = _infer_image(temp_path, model_id=model_id, **infer_kwargs)
-            results["models"][model_id] = _normalize_predictions(raw, img_w, img_h)
-            return results
-
-        # Otherwise, use the configured switches (if their env var exists)
         errors: Dict[str, str] = {}
 
-        def maybe_run(_switch: bool, _model: str | None, _name: str):
-            if not _switch:
-                return
-            if not _model:
-                errors[_name] = f"{_name} model not configured"
-                return
-            try:
-                raw = _infer_image(temp_path, model_id=_model, **infer_kwargs)
-                results["models"][_name] = _normalize_predictions(raw, img_w, img_h)
-            except Exception as e:  # noqa: BLE001
-                errors[_name] = str(e)
+        # Run room detection
+        if detect_rooms:
+            if not ROOM_MODEL_ID:
+                errors["rooms"] = "rooms model not configured"
+            else:
+                try:
+                    raw = _infer_image(temp_path, model_id=ROOM_MODEL_ID, api_key=ROOM_API_KEY, **infer_kwargs)
+                    results["models"]["rooms"] = _normalize_predictions(raw, img_w, img_h)
+                except Exception as e:
+                    errors["rooms"] = str(e)
 
-        maybe_run(detect_floors, FLOOR_MODEL_ID, "floors")
-        maybe_run(detect_columns, COLUMN_MODEL_ID, "columns")
-        maybe_run(detect_walls, WALL_MODEL_ID, "walls")
+        # Run wall detection
+        if detect_walls:
+            if not WALL_MODEL_ID:
+                errors["walls"] = "walls model not configured"
+            else:
+                try:
+                    raw = _infer_image(temp_path, model_id=WALL_MODEL_ID, api_key=WALL_API_KEY, **infer_kwargs)
+                    results["models"]["walls"] = _normalize_predictions(raw, img_w, img_h)
+                except Exception as e:
+                    errors["walls"] = str(e)
+
+        # Run door/window detection (filter out rooms and walls from this model)
+        if detect_doors_windows:
+            if not DOORWINDOW_MODEL_ID:
+                errors["doors_windows"] = "doors/windows model not configured"
+            else:
+                try:
+                    raw = _infer_image(temp_path, model_id=DOORWINDOW_MODEL_ID, api_key=DOORWINDOW_API_KEY, **infer_kwargs)
+                    # Filter to only include door and window classes
+                    door_window_preds = _normalize_predictions(raw, img_w, img_h, filter_classes=["door", "window", "Door", "Window"])
+                    results["models"]["doors_windows"] = door_window_preds
+                except Exception as e:
+                    errors["doors_windows"] = str(e)
 
         if errors:
             results["errors"] = errors
@@ -247,7 +312,7 @@ async def analyze(
 
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
