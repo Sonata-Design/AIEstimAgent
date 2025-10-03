@@ -47,7 +47,7 @@ export default defineConfig({
 
   build: {
     // Output outside of client/ so the API can serve it from ../dist/client
-    outDir: path.resolve(__dirname, "dist", "client"),
+    outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
   },
 });
