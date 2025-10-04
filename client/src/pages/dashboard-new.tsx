@@ -363,7 +363,7 @@ export default function Dashboard() {
                         </DialogHeader>
                         {currentProject && currentDrawing && (() => {
                           // Convert analysis results to takeoffs format
-                          const takeoffs = [];
+                          const takeoffs: any[] = [];
                           if (analysisResults?.predictions) {
                             const { rooms = [], walls = [], openings = [] } = analysisResults.predictions;
                             
