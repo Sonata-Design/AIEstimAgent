@@ -118,7 +118,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/upload", diskUpload.single("file"), async (req: MulterRequest, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const fileUrl = `/uploads/${req.file.filename}`;
+    // Use full URL for production, relative for development
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? (process.env.API_BASE_URL || 'https://aiestimagent-api.onrender.com')
+      : '';
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+    
     return res.json({
       fileUrl,
       filename: req.file.originalname,
@@ -208,7 +213,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create the drawing record with file information
-      const fileUrl = `/uploads/${req.file.filename}`;
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? (process.env.API_BASE_URL || 'https://aiestimagent-api.onrender.com')
+        : '';
+      const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+      
       const drawingData = {
         projectId: req.params.projectId,
         name,

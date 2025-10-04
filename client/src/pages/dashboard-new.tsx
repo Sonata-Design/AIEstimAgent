@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { createApiUrl } from "@/config/api";
+import { createApiUrl, createMlUrl } from "@/config/api";
 import { Download, Ruler, Square, Hash, MessageSquare, PanelLeft, PanelRight, Hand, FileText } from "lucide-react";
 import type { Drawing, Project } from "@shared/schema";
 import { useDetectionsStore } from "@/store/useDetectionsStore";
@@ -91,7 +91,8 @@ export default function Dashboard() {
       formData.append('types', JSON.stringify(typesToAnalyze));
       formData.append('scale', scaleValue.toString());
 
-      const results = await apiRequest(createApiUrl('/api/analyze'), 'POST', formData, true);
+      console.log('Analyzing with ML service:', createMlUrl('/analyze'));
+      const results = await apiRequest(createMlUrl('/analyze'), 'POST', formData, true);
 
       setAnalysisResults(results);
 
