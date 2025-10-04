@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { createApiUrl } from "@/config/api";
 import { Download, Ruler, Square, Hash, MessageSquare, PanelLeft, PanelRight, Hand, FileText } from "lucide-react";
 import type { Drawing, Project } from "@shared/schema";
 import { useDetectionsStore } from "@/store/useDetectionsStore";
@@ -90,7 +91,7 @@ export default function Dashboard() {
       formData.append('types', JSON.stringify(typesToAnalyze));
       formData.append('scale', scaleValue.toString());
 
-      const results = await apiRequest('/api/analyze', 'POST', formData, true);
+      const results = await apiRequest(createApiUrl('/api/analyze'), 'POST', formData, true);
 
       setAnalysisResults(results);
 
@@ -105,7 +106,7 @@ export default function Dashboard() {
         
         // Save analysis results to database as takeoffs
         try {
-          await apiRequest(`/api/drawings/${currentDrawing.id}/analysis`, 'POST', {
+          await apiRequest(createApiUrl(`/api/drawings/${currentDrawing.id}/analysis`), 'POST', {
             results: results,
             scale: scaleValue
           });
@@ -137,7 +138,7 @@ export default function Dashboard() {
 
   const createNewProject = async (drawingName: string): Promise<Project> => {
     const projectData = { name: `Project - ${drawingName}`, description: `Auto-generated project for ${drawingName}`, status: "active" };
-    const project = await apiRequest("/api/projects", "POST", projectData);
+    const project = await apiRequest(createApiUrl("/api/projects"), "POST", projectData);
     queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
     return project;
   };
@@ -151,7 +152,7 @@ export default function Dashboard() {
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
-      const uploadResult = await apiRequest('/api/upload', 'POST', uploadFormData, true);
+      const uploadResult = await apiRequest(createApiUrl('/api/upload'), 'POST', uploadFormData, true);
       
       let projectToUse = currentProject || await createNewProject(file.name);
       setCurrentProject(projectToUse);
@@ -166,7 +167,7 @@ export default function Dashboard() {
         scale: selectedScale,
         aiProcessed: false
       };
-      const savedDrawing = await apiRequest(`/api/projects/${projectToUse.id}/drawings`, "POST", drawingData);
+      const savedDrawing = await apiRequest(createApiUrl(`/api/projects/${projectToUse.id}/drawings`), "POST", drawingData);
       
       setCurrentDrawing(savedDrawing);
       toast({ title: "Upload Successful", description: "Select takeoff types and click 'Run AI Analysis'." });
