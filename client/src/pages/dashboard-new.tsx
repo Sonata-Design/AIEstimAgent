@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import Layout from "@/components/layout";
 import DrawingViewer from "@/components/drawing-viewer";
@@ -17,6 +17,9 @@ import { Download, Ruler, Square, Hash, MessageSquare, PanelLeft, PanelRight, Ha
 import type { Drawing, Project } from "@shared/schema";
 import { useDetectionsStore } from "@/store/useDetectionsStore";
 import type { Detection } from "@/store/useDetectionsStore";
+import { useStore } from "@/store/useStore";
+import { recalculateDimensions } from "@/utils/dimensionCalculator";
+import { toPairs } from "@/utils/geometry";
 
 const isDetection = (value: unknown): value is Detection => {
   if (!value || typeof value !== "object") return false;
@@ -49,6 +52,19 @@ export default function Dashboard() {
   const { toast } = useToast();
   // MODIFICATION: The Zustand hook is now called at the top level, which is correct.
   const setDetections = useDetectionsStore(s => s.setDetections);
+  
+  // NOTE: Real-time dimension updates are now handled in RealtimeAnalysisPanel
+  // by reading directly from the store, avoiding re-renders that break editing
+  
+  const getPixelsPerFoot = (scale: string): number => {
+    const scaleMap: { [key: string]: number } = {
+      '1/4" = 1\'': 48,
+      '1/8" = 1\'': 24,
+      '1/2" = 1\'': 96,
+      '1" = 1\'': 192,
+    };
+    return scaleMap[scale] || 48;
+  };
 
   const handleRunAnalysis = async () => {
     if (!currentDrawing || !currentDrawing.fileUrl) {
@@ -104,14 +120,14 @@ export default function Dashboard() {
           .filter((item): item is Detection => isDetection(item));
 
         setDetections(allPredictions);
-        
+
         // Save analysis results to database as takeoffs
         try {
           await apiRequest(createApiUrl(`/api/drawings/${currentDrawing.id}/analysis`), 'POST', {
             results: results,
             scale: scaleValue
           });
-          
+
           // Invalidate takeoffs query to refresh the takeoff panel
           queryClient.invalidateQueries({ queryKey: ["/api/drawings", currentDrawing.id, "takeoffs"] });
         } catch (saveError) {
@@ -121,7 +137,7 @@ export default function Dashboard() {
       } else {
         setDetections([]); // Clear detections if the analysis returns no predictions
       }
-      
+
       toast({
         title: "Analysis Complete",
         description: `Successfully analyzed ${typesToAnalyze.length} element types.`,
@@ -154,10 +170,10 @@ export default function Dashboard() {
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
       const uploadResult = await apiRequest(createApiUrl('/api/upload'), 'POST', uploadFormData, true);
-      
+
       let projectToUse = currentProject || await createNewProject(file.name);
       setCurrentProject(projectToUse);
-      
+
       const drawingData = {
         projectId: projectToUse.id,
         name: file.name,
@@ -169,7 +185,7 @@ export default function Dashboard() {
         aiProcessed: false
       };
       const savedDrawing = await apiRequest(createApiUrl(`/api/projects/${projectToUse.id}/drawings`), "POST", drawingData);
-      
+
       setCurrentDrawing(savedDrawing);
       toast({ title: "Upload Successful", description: "Select takeoff types and click 'Run AI Analysis'." });
     } catch (error) {
@@ -192,9 +208,9 @@ export default function Dashboard() {
         </div>
 
         <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-white border-b border-slate-200 px-4 lg:px-6 py-3">
+          <div className="bg-background border-b border-border px-4 lg:px-6 py-3">
             <div className="flex items-center">
-               <Sheet>
+              <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="lg:hidden mr-2">
                     <PanelLeft className="w-5 h-5" />
@@ -216,16 +232,16 @@ export default function Dashboard() {
 
               <div className="flex items-center gap-2">
                 {currentProject && (
-                  <span className="text-sm font-medium text-slate-900">{currentProject.name}</span>
+                  <span className="text-sm font-medium text-foreground">{currentProject.name}</span>
                 )}
                 {currentProject && currentDrawing && (
-                  <span className="text-slate-300">/</span>
+                  <span className="text-muted-foreground">/</span>
                 )}
                 {currentDrawing && (
-                  <span className="text-sm text-slate-600">{currentDrawing.name}</span>
+                  <span className="text-sm text-muted-foreground">{currentDrawing.name}</span>
                 )}
                 {!currentProject && !currentDrawing && (
-                  <span className="text-sm text-slate-400">No drawing selected</span>
+                  <span className="text-sm text-muted-foreground">No drawing selected</span>
                 )}
               </div>
 
@@ -236,236 +252,232 @@ export default function Dashboard() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="p-0 w-full sm:w-96">
-                   <SheetHeader className="sr-only">
+                  <SheetHeader className="sr-only">
                     <SheetTitle>AI Analysis Panel</SheetTitle>
                     <SheetDescription>View the results of the real-time AI takeoff processing.</SheetDescription>
                   </SheetHeader>
-                   <RealtimeAnalysisPanel 
-                      drawing={currentDrawing}
-                      selectedTypes={selectedTakeoffTypes}
-                      isAnalyzing={isAnalyzing}
-                      onStartAnalysis={handleRunAnalysis}
-                      onElementHover={setHighlightedElement}
-                      analysisResults={analysisResults}
-                    />
+                  <RealtimeAnalysisPanel
+                    drawing={currentDrawing}
+                    selectedTypes={selectedTakeoffTypes}
+                    isAnalyzing={isAnalyzing}
+                    onStartAnalysis={handleRunAnalysis}
+                    onElementHover={setHighlightedElement}
+                    analysisResults={analysisResults}
+                  />
                 </SheetContent>
               </Sheet>
             </div>
           </div>
 
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="bg-slate-50 border-b border-slate-200 p-2 lg:p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 lg:space-x-4">
-                      <div className="flex items-center space-x-2">
-                        {!customPixelsPerFoot ? (
-                          <>
-                            <span className="text-xs text-slate-500 hidden sm:inline">Scale:</span>
-                            <select className="text-xs border border-slate-300 rounded px-2 py-1" value={selectedScale} onChange={(e) => setSelectedScale(e.target.value)} disabled={isCalibrating}>
-                              <option>1/4" = 1'</option>
-                              <option>1/8" = 1'</option>
-                              <option>1/2" = 1'</option>
-                              <option>1" = 1'</option>
-                            </select>
-                          </>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500">Calibrated:</span>
-                            <span className="text-xs font-medium text-blue-600">{customPixelsPerFoot.toFixed(1)} px/ft</span>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => setCustomPixelsPerFoot(null)}
-                              className="h-6 px-2 text-xs"
-                            >
-                              Reset
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      <CalibrationTool
-                        isActive={isCalibrating}
-                        points={calibrationPoints}
-                        onActivate={() => {
-                          setIsCalibrating(true);
-                          setIsPanMode(false);
-                        }}
-                        onComplete={(pixelsPerFoot) => {
-                          setCustomPixelsPerFoot(pixelsPerFoot);
-                          setIsCalibrating(false);
-                          setCalibrationPoints([]);
-                          toast({
-                            title: "Calibration Complete",
-                            description: `Scale set to ${pixelsPerFoot.toFixed(1)} pixels per foot`,
-                          });
-                        }}
-                        onCancel={() => {
-                          setIsCalibrating(false);
-                          setCalibrationPoints([]);
-                        }}
-                      />
+          <div className="flex-1 relative bg-muted/30 flex flex-col border-border p-2 lg:p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 lg:space-x-4">
+                <div className="flex items-center space-x-2">
+                  {!customPixelsPerFoot ? (
+                    <>
+                      <span className="text-xs text-muted-foreground hidden sm:inline">Scale:</span>
+                      <select className="text-xs bg-background border border-border rounded px-2 py-1 text-foreground" value={selectedScale} onChange={(e) => setSelectedScale(e.target.value)} disabled={isCalibrating}>
+                        <option>1/4" = 1'</option>
+                        <option>1/8" = 1'</option>
+                        <option>1/2" = 1'</option>
+                        <option>1" = 1'</option>
+                      </select>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Calibrated:</span>
+                      <span className="text-xs font-medium text-primary">{customPixelsPerFoot.toFixed(1)} px/ft</span>
                       <Button
-                        variant={isPanMode ? "default" : "outline"}
+                        variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setIsPanMode(!isPanMode);
-                          setIsCalibrating(false);
-                        }}
-                        className="w-9 h-9 p-0"
-                        title={isPanMode ? "Pan Mode Active (Click to disable)" : "Pan/Move Tool"}
+                        onClick={() => setCustomPixelsPerFoot(null)}
+                        className="h-6 px-2 text-xs"
                       >
-                        <Hand className="w-4 h-4" />
+                        Reset
                       </Button>
                     </div>
-                  </div>
+                  )}
                 </div>
-              
-              <InteractiveFloorPlan
-                drawing={currentDrawing}
-                highlightedElement={highlightedElement}
-                activeViewMode={activeViewMode}
-                activeTool={activeTool}
-                selectedScale={selectedScale}
-                onElementClick={() => {}}
-                onMeasurement={() => {}}
-                analysisResults={analysisResults}
-                isCalibrating={isCalibrating}
-                calibrationPoints={calibrationPoints}
-                isPanMode={isPanMode}
-                onCalibrationClick={(x, y) => {
-                  if (calibrationPoints.length < 2) {
-                    setCalibrationPoints([...calibrationPoints, { x, y }]);
-                  }
-                }}
-              />
-              
-              {!currentDrawing && (
-                <DrawingViewer drawing={null} onFileUpload={handleFileUpload} isUploading={isUploading} />
-              )}
+                <CalibrationTool
+                  isActive={isCalibrating}
+                  points={calibrationPoints}
+                  onActivate={() => {
+                    setIsCalibrating(true);
+                    setIsPanMode(false);
+                  }}
+                  onComplete={(pixelsPerFoot) => {
+                    setCustomPixelsPerFoot(pixelsPerFoot);
+                    setIsCalibrating(false);
+                    setCalibrationPoints([]);
+                    toast({
+                      title: "Calibration Complete",
+                      description: `Scale set to ${pixelsPerFoot.toFixed(1)} pixels per foot`,
+                    });
+                  }}
+                  onCancel={() => {
+                    setIsCalibrating(false);
+                    setCalibrationPoints([]);
+                  }}
+                />
+                <Button
+                  variant={isPanMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setIsPanMode(!isPanMode);
+                    setIsCalibrating(false);
+                  }}
+                  className="w-9 h-9 p-0"
+                  title={isPanMode ? "Pan Mode Active (Click to disable)" : "Pan/Move Tool"}
+                >
+                  <Hand className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
-            <div className="w-96 flex-col hidden lg:flex">
-              <div className="bg-white p-4 border-b border-slate-200">
-                <div className="flex items-center space-x-2">
-                    <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          className="bg-green-600 hover:bg-green-700 flex-1" 
-                          size="sm"
-                          disabled={!currentProject || !currentDrawing}
-                        >
-                          <FileText className="w-4 h-4 mr-2" />
-                          Export Report
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Generate Project Report</DialogTitle>
-                        </DialogHeader>
-                        {currentProject && currentDrawing && (() => {
-                          // Convert analysis results to takeoffs format
-                          const takeoffs: any[] = [];
-                          if (analysisResults?.predictions) {
-                            const { rooms = [], walls = [], openings = [] } = analysisResults.predictions;
-                            
-                            // Add rooms
-                            rooms.forEach((room: any, idx: number) => {
-                              takeoffs.push({
-                                id: room.id || `room-${idx}`,
-                                projectId: currentProject.id,
-                                drawingId: currentDrawing.id,
-                                elementType: 'room',
-                                name: room.class || `Room ${idx + 1}`,
-                                quantity: 1,
-                                area: room.display?.area_sqft || 0,
-                                length: room.display?.perimeter_ft || 0,
-                                unit: 'sq ft',
-                                unitCost: 0,
-                                totalCost: 0,
-                                verified: false,
-                                createdAt: new Date(),
-                                updatedAt: new Date()
-                              });
-                            });
-                            
-                            // Add walls
-                            walls.forEach((wall: any, idx: number) => {
-                              takeoffs.push({
-                                id: wall.id || `wall-${idx}`,
-                                projectId: currentProject.id,
-                                drawingId: currentDrawing.id,
-                                elementType: 'wall',
-                                name: wall.class || `Wall ${idx + 1}`,
-                                quantity: 1,
-                                area: wall.display?.area_sqft || 0,
-                                length: wall.display?.perimeter_ft || 0,
-                                unit: 'LF',
-                                unitCost: 0,
-                                totalCost: 0,
-                                verified: false,
-                                createdAt: new Date(),
-                                updatedAt: new Date()
-                              });
-                            });
-                            
-                            // Add openings
-                            openings.forEach((opening: any, idx: number) => {
-                              takeoffs.push({
-                                id: opening.id || `opening-${idx}`,
-                                projectId: currentProject.id,
-                                drawingId: currentDrawing.id,
-                                elementType: opening.class?.toLowerCase().includes('door') ? 'door' : 'window',
-                                name: opening.class || `Opening ${idx + 1}`,
-                                quantity: 1,
-                                area: 0,
-                                length: 0,
-                                unit: 'EA',
-                                unitCost: 0,
-                                totalCost: 0,
-                                verified: false,
-                                createdAt: new Date(),
-                                updatedAt: new Date()
-                              });
-                            });
-                          }
-                          
-                          return (
-                            <ReportGeneratorComponent
-                              project={currentProject}
-                              takeoffs={takeoffs as any}
-                              drawings={[currentDrawing]}
-                              analyses={analysisResults ? [{
-                                id: 'current',
-                                drawingId: currentDrawing.id,
-                                projectId: currentProject.id,
-                                predictions: analysisResults.predictions || {},
-                                createdAt: new Date(),
-                                analysisType: 'full'
-                              } as any] : []}
-                            />
-                          );
-                        })()}
-                      </DialogContent>
-                    </Dialog>
-                    <Button className="bg-purple-600 hover:bg-purple-700 text-white flex-1" size="sm">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      AI Chat
-                    </Button>
-                </div>
-              </div>
-              
-              <RealtimeAnalysisPanel 
-                drawing={currentDrawing} 
-                selectedTypes={selectedTakeoffTypes} 
-                isAnalyzing={isAnalyzing} 
-                onStartAnalysis={handleRunAnalysis} 
-                onElementHover={setHighlightedElement}
-                analysisResults={analysisResults}
-              />
-            </div>
+            <InteractiveFloorPlan
+              drawing={currentDrawing}
+              highlightedElement={highlightedElement}
+              activeViewMode={activeViewMode}
+              activeTool={activeTool}
+              selectedScale={selectedScale}
+              onElementClick={() => { }}
+              onMeasurement={() => { }}
+              analysisResults={analysisResults}
+              isCalibrating={isCalibrating}
+              calibrationPoints={calibrationPoints}
+              isPanMode={isPanMode}
+              onCalibrationClick={(x, y) => {
+                if (calibrationPoints.length < 2) {
+                  setCalibrationPoints([...calibrationPoints, { x, y }]);
+                }
+              }}
+            />
+
+            {!currentDrawing && (
+              <DrawingViewer drawing={null} onFileUpload={handleFileUpload} isUploading={isUploading} />
+            )}
           </div>
         </main>
+
+        <div className="w-96 flex-col hidden lg:flex">
+          <div className="bg-card p-4 border-b border-border">
+            <div className="flex items-center space-x-2">
+              <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    className="bg-green-600 hover:bg-green-700 flex-1"
+                    size="sm"
+                    disabled={!currentProject || !currentDrawing}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Export Report
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Generate Project Report</DialogTitle>
+                  </DialogHeader>
+                  {currentProject && currentDrawing && (() => {
+                    // Convert analysis results to takeoffs format
+                    const takeoffs: any[] = [];
+                    if (analysisResults?.predictions) {
+                      const { rooms = [], walls = [], openings = [] } = analysisResults.predictions;
+
+                      // Add rooms
+                      rooms.forEach((room: any, idx: number) => {
+                        takeoffs.push({
+                          id: room.id || `room-${idx}`,
+                          projectId: currentProject.id,
+                          drawingId: currentDrawing.id,
+                          elementType: 'room',
+                          name: room.class || `Room ${idx + 1}`,
+                          quantity: 1,
+                          area: room.display?.area_sqft || 0,
+                          length: room.display?.perimeter_ft || 0,
+                          unit: 'sq ft',
+                          unitCost: 0,
+                          totalCost: 0,
+                          verified: false,
+                          createdAt: new Date(),
+                          updatedAt: new Date()
+                        });
+                      });
+
+                      // Add walls
+                      walls.forEach((wall: any, idx: number) => {
+                        takeoffs.push({
+                          id: wall.id || `wall-${idx}`,
+                          projectId: currentProject.id,
+                          drawingId: currentDrawing.id,
+                          elementType: 'wall',
+                          name: wall.class || `Wall ${idx + 1}`,
+                          quantity: 1,
+                          area: wall.display?.area_sqft || 0,
+                          length: wall.display?.perimeter_ft || 0,
+                          unit: 'LF',
+                          unitCost: 0,
+                          totalCost: 0,
+                          verified: false,
+                          createdAt: new Date(),
+                          updatedAt: new Date()
+                        });
+                      });
+
+                      // Add openings
+                      openings.forEach((opening: any, idx: number) => {
+                        takeoffs.push({
+                          id: opening.id || `opening-${idx}`,
+                          projectId: currentProject.id,
+                          drawingId: currentDrawing.id,
+                          elementType: opening.class?.toLowerCase().includes('door') ? 'door' : 'window',
+                          name: opening.class || `Opening ${idx + 1}`,
+                          quantity: 1,
+                          area: 0,
+                          length: 0,
+                          unit: 'EA',
+                          unitCost: 0,
+                          totalCost: 0,
+                          verified: false,
+                          createdAt: new Date(),
+                          updatedAt: new Date()
+                        });
+                      });
+                    }
+
+                    return (
+                      <ReportGeneratorComponent
+                        project={currentProject}
+                        takeoffs={takeoffs as any}
+                        drawings={[currentDrawing]}
+                        analyses={analysisResults ? [{
+                          id: 'current',
+                          drawingId: currentDrawing.id,
+                          projectId: currentProject.id,
+                          predictions: analysisResults.predictions || {},
+                          createdAt: new Date(),
+                          analysisType: 'full'
+                        } as any] : []}
+                      />
+                    );
+                  })()}
+                </DialogContent>
+              </Dialog>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white flex-1" size="sm">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                AI Chat
+              </Button>
+            </div>
+          </div>
+
+          <RealtimeAnalysisPanel
+            drawing={currentDrawing}
+            selectedTypes={selectedTakeoffTypes}
+            isAnalyzing={isAnalyzing}
+            onStartAnalysis={handleRunAnalysis}
+            onElementHover={setHighlightedElement}
+            analysisResults={analysisResults}
+          />
+        </div>
       </div>
     </Layout>
   );

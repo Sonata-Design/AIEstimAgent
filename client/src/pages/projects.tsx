@@ -104,14 +104,10 @@ export default function Projects() {
     queryKey: ["/api/projects"],
   });
 
-  // Project health status based on AI analysis (simulated)
+  // Project health status will be based on real-time AI analysis
   const getProjectHealth = (project: Project) => {
-    const createdDate = project.createdAt ? new Date(project.createdAt) : new Date();
-    const daysSinceCreated = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSinceCreated < 7) return { status: 'excellent', color: 'bg-green-500', icon: CheckCircle2 };
-    if (daysSinceCreated < 30) return { status: 'good', color: 'bg-blue-500', icon: TrendingUp };
-    if (daysSinceCreated < 90) return { status: 'warning', color: 'bg-yellow-500', icon: Clock };
-    return { status: 'critical', color: 'bg-red-500', icon: AlertTriangle };
+    // Placeholder until real-time data is integrated
+    return { status: 'active', color: 'bg-blue-500', icon: Activity };
   };
 
   // Filtered and sorted projects
@@ -285,17 +281,17 @@ export default function Projects() {
   return (
     <Layout>
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-6">
+      <div className="bg-background border-b border-border p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-            <p className="text-slate-600 mt-1">Manage your construction projects and takeoffs</p>
+            <h1 className="text-2xl font-bold text-foreground">Projects</h1>
+            <p className="text-muted-foreground mt-1">Manage your construction projects and takeoffs</p>
           </div>
           
           <div className="flex space-x-3">
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blueprint-600 hover:bg-blueprint-700" data-testid="button-create-project">
+                <Button className="bg-primary hover:bg-primary/90" data-testid="button-create-project">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Project
                 </Button>
@@ -308,7 +304,7 @@ export default function Projects() {
         <div className="mt-6 flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search projects by name, client, or location..."
                 value={searchTerm}
@@ -350,9 +346,9 @@ export default function Projects() {
 
         {/* Bulk Actions Bar */}
         {selectedProjects.size > 0 && (
-          <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="mt-4 bg-muted border border-border rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-slate-700">
+              <span className="text-sm font-medium text-foreground">
                 {selectedProjects.size} project{selectedProjects.size !== 1 ? 's' : ''} selected
               </span>
               <Button
@@ -383,10 +379,10 @@ export default function Projects() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Building className="w-8 h-8 text-blueprint-600" />
+                <Building className="w-8 h-8 text-primary" />
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-slate-600">Total Projects</p>
-                  <p className="text-2xl font-bold text-slate-900">{projects.length}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
+                  <p className="text-2xl font-bold text-foreground">{projects.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -397,8 +393,8 @@ export default function Projects() {
               <div className="flex items-center">
                 <Activity className="w-8 h-8 text-green-600" />
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-slate-600">Active Projects</p>
-                  <p className="text-2xl font-bold text-slate-900">
+                  <p className="text-sm font-medium text-muted-foreground">Active Projects</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {projects.filter(p => p.status === 'active').length}
                   </p>
                 </div>
@@ -411,8 +407,8 @@ export default function Projects() {
               <div className="flex items-center">
                 <CheckCircle2 className="w-8 h-8 text-blue-600" />
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-slate-600">Completed</p>
-                  <p className="text-2xl font-bold text-slate-900">
+                  <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {projects.filter(p => p.status === 'completed').length}
                   </p>
                 </div>
@@ -425,8 +421,8 @@ export default function Projects() {
               <div className="flex items-center">
                 <TrendingUp className="w-8 h-8 text-purple-600" />
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-slate-600">Healthy Projects</p>
-                  <p className="text-2xl font-bold text-slate-900">
+                  <p className="text-sm font-medium text-muted-foreground">Active Projects</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {projects.filter(p => getProjectHealth(p).status === 'excellent' || getProjectHealth(p).status === 'good').length}
                   </p>
                 </div>
@@ -444,7 +440,7 @@ export default function Projects() {
                 onCheckedChange={isAllSelected ? clearSelection : selectAllVisible}
                 data-testid="checkbox-select-all"
               />
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-muted-foreground">
                 Select all visible ({filteredProjects.length})
               </span>
             </div>
@@ -457,17 +453,17 @@ export default function Projects() {
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
-                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : filteredProjects.length === 0 ? (
           <div className="text-center py-12">
-            <Building className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No projects found</h3>
-            <p className="text-slate-600 mb-4">
+            <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No projects found</h3>
+            <p className="text-muted-foreground mb-4">
               {searchTerm || statusFilter !== "all" ? 
                 "No projects match your current filters." :
                 "Get started by creating your first project."
@@ -476,7 +472,7 @@ export default function Projects() {
             {(!searchTerm && statusFilter === "all") && (
               <Button
                 onClick={() => setIsCreateDialogOpen(true)}
-                className="bg-blueprint-600 hover:bg-blueprint-700"
+                className="bg-primary hover:bg-primary/90"
                 data-testid="button-create-first-project"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -493,7 +489,7 @@ export default function Projects() {
               return (
                 <Card 
                   key={project.id} 
-                  className="cursor-pointer hover:shadow-lg transition-shadow border border-slate-200"
+                  className="cursor-pointer hover:shadow-lg transition-shadow border border-border bg-card"
                   onClick={(e) => {
                     // Only navigate if not clicking on interactive elements
                     if (!(e.target as Element).closest('[data-interactive]')) {
@@ -513,13 +509,13 @@ export default function Projects() {
                           data-testid={`checkbox-project-${project.id}`}
                         />
                         <div>
-                          <CardTitle className="text-lg font-semibold text-slate-900 line-clamp-1">
+                          <CardTitle className="text-lg font-semibold text-foreground line-clamp-1">
                             {project.name}
                           </CardTitle>
                           <div className="flex items-center gap-2 mt-1">
                             <div className={`w-2 h-2 rounded-full ${health.color}`}></div>
                             <HealthIcon className="w-4 h-4 text-slate-500" />
-                            <span className="text-sm text-slate-500 capitalize">{health.status}</span>
+                            <span className="text-sm text-muted-foreground capitalize">{health.status}</span>
                           </div>
                         </div>
                       </div>
@@ -567,20 +563,20 @@ export default function Projects() {
                   <CardContent className="pt-0">
                     <div className="space-y-3">
                       {project.client && (
-                        <div className="flex items-center text-sm text-slate-600">
+                        <div className="flex items-center text-sm text-muted-foreground">
                           <Building className="w-4 h-4 mr-2" />
                           {project.client}
                         </div>
                       )}
                       
                       {project.location && (
-                        <div className="flex items-center text-sm text-slate-600">
+                        <div className="flex items-center text-sm text-muted-foreground">
                           <MapPin className="w-4 h-4 mr-2" />
                           {project.location}
                         </div>
                       )}
                       
-                      <div className="flex items-center text-sm text-slate-600">
+                      <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4 mr-2" />
                         {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'No date'}
                       </div>
@@ -594,14 +590,14 @@ export default function Projects() {
                           {project.status}
                         </Badge>
                         
-                        <div className="flex items-center text-sm text-slate-500">
+                        <div className="flex items-center text-sm text-muted-foreground">
                           <Activity className="w-4 h-4 mr-1" />
                           Active
                         </div>
                       </div>
                       
                       {project.description && (
-                        <p className="text-sm text-slate-600 line-clamp-2 mt-2">
+                        <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
                           {project.description}
                         </p>
                       )}
@@ -678,7 +674,7 @@ export default function Projects() {
               <Button
                 onClick={handleCreateProject}
                 disabled={createProjectMutation.isPending}
-                className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
+                className="flex-1 bg-primary hover:bg-primary/90"
                 data-testid="button-confirm-create-project"
               >
                 {createProjectMutation.isPending ? "Creating..." : "Create Project"}
@@ -759,7 +755,7 @@ export default function Projects() {
               <Button
                 onClick={handleUpdateProject}
                 disabled={updateProjectMutation.isPending}
-                className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
+                className="flex-1 bg-primary hover:bg-primary/90"
                 data-testid="button-confirm-update-project"
               >
                 {updateProjectMutation.isPending ? "Updating..." : "Update Project"}

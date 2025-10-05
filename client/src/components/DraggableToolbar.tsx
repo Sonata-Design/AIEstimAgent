@@ -14,6 +14,7 @@ interface Props {
   onDone: () => void
   onSimplify?: () => void
   selectedVerticesCount?: number
+  scale?: number
 }
 
 export default function DraggableToolbar({ 
@@ -23,7 +24,8 @@ export default function DraggableToolbar({
   onCopy, 
   onDone, 
   onSimplify,
-  selectedVerticesCount = 0
+  selectedVerticesCount = 0,
+  scale = 1
 }: Props) {
   const [position, setPosition] = React.useState<Point | null>(null)
   const [isDragging, setIsDragging] = React.useState(false)
@@ -113,6 +115,8 @@ export default function DraggableToolbar({
           cursor: isDragging ? 'grabbing' : 'default',
           userSelect: 'none',
           minWidth: "fit-content",
+          transform: `scale(${1 / scale})`,
+          transformOrigin: "top left",
         }}
       >
         {/* Drag handle */}

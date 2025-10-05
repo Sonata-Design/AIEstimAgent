@@ -113,27 +113,27 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
   };
 
   return (
-    <div className="flex-1 bg-slate-50 flex items-center justify-center p-8">
+    <div className="flex-1 bg-muted/30 flex items-center justify-center p-8">
       <div className="max-w-lg w-full">
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             isDragOver 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-slate-300 bg-white hover:border-slate-400'
+              ? 'border-primary bg-primary/10' 
+              : 'border-border bg-card hover:border-muted-foreground'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
           <div className="mb-6">
-            <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">
+            <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Drop files here to upload
             </h3>
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Upload blueprint PDFs or images for AI analysis
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Supports PDF, PNG, JPG files up to 50MB
             </p>
           </div>
@@ -156,16 +156,16 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
             {/* File List */}
             {uploadedFiles.length > 0 && (
               <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-medium text-slate-900 text-left">
+                <h4 className="text-sm font-medium text-foreground text-left">
                   Selected Files ({uploadedFiles.length})
                 </h4>
                 {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                  <div key={index} className="flex items-center justify-between bg-muted p-3 rounded-lg">
                     <div className="flex items-center space-x-3">
                       {getFileIcon(file)}
                       <div className="text-left">
-                        <p className="text-sm font-medium text-slate-900">{file.name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-sm font-medium text-foreground">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
                           {(file.size / 1024 / 1024).toFixed(1)} MB
                         </p>
                       </div>
@@ -174,7 +174,7 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
-                      className="text-slate-400 hover:text-slate-600"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -184,7 +184,7 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
                 <Button 
                   onClick={handleUpload}
                   disabled={isUploading ?? internalUploading}
-                  className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
+                  className="w-full mt-4 bg-primary hover:bg-primary/90"
                 >
                   {(isUploading ?? internalUploading) ? (
                     <>

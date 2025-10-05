@@ -43,6 +43,9 @@ interface StoreState {
   selectionStart: Point | null
   selectionEnd: Point | null
   
+  // Hover state for highlighting
+  hoveredDetectionId: string | number | null
+  
   setImage: (img: string | null) => void
   setImageFile: (file: File | null) => void
   setDetections: (dets: Detection[]) => void
@@ -67,6 +70,9 @@ interface StoreState {
   selectVerticesInArea: (start: Point, end: Point) => void
   deleteSelectedVertices: () => void
   simplifySelectedVertices: (tolerance: number) => void
+  
+  // Hover actions
+  setHoveredDetectionId: (id: string | number | null) => void
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -83,6 +89,9 @@ export const useStore = create<StoreState>((set, get) => ({
   isSelecting: false,
   selectionStart: null,
   selectionEnd: null,
+  
+  // Hover state
+  hoveredDetectionId: null,
   
   setDetections: (dets) => set((s) => ({
     history: [...s.history, s.detections],
@@ -329,7 +338,10 @@ export const useStore = create<StoreState>((set, get) => ({
       canUndo: true,
       canRedo: false
     })
-  }
+  },
+  
+  // Hover actions
+  setHoveredDetectionId: (id) => set({ hoveredDetectionId: id })
 }))
 
 // Helper function for point-to-line distance calculation

@@ -182,13 +182,13 @@ export default function InteractiveFloorPlan({
   const imgH = analysisResults?.image?.height || 1500;
 
   return (
-    <div className="flex-1 bg-slate-100 relative overflow-hidden">
-      <div className="absolute top-4 left-4 z-10 flex items-center space-x-1 bg-white rounded-lg shadow-lg border border-slate-200 p-1">
+    <div className="flex-1 bg-muted/30 relative overflow-hidden">
+      <div className="absolute top-4 left-4 z-10 flex items-center space-x-1 bg-card rounded-lg shadow-lg border border-border p-1">
         <Button variant="ghost" size="sm" onClick={handleZoomOut}><ZoomOut className="w-4 h-4" /></Button>
         <Slider value={[viewState.scale]} onValueChange={handleSliderChange} min={MIN_SCALE} max={MAX_SCALE} step={0.01} className="w-24" />
         <Button variant="ghost" size="sm" onClick={handleZoomIn}><ZoomIn className="w-4 h-4" /></Button>
-        <span className="text-sm text-slate-600 px-2 min-w-[50px] text-center border-l">{Math.round(viewState.scale * 100)}%</span>
-        <Button variant="ghost" size="sm" onClick={handleFitToScreen} className="border-l"><Maximize className="w-4 h-4" /></Button>
+        <span className="text-sm text-muted-foreground px-2 min-w-[50px] text-center border-l border-border">{Math.round(viewState.scale * 100)}%</span>
+        <Button variant="ghost" size="sm" onClick={handleFitToScreen} className="border-l border-border"><Maximize className="w-4 h-4" /></Button>
       </div>
 
       <div
@@ -214,10 +214,12 @@ export default function InteractiveFloorPlan({
             className="absolute top-0 left-0 pointer-events-auto"
             style={{ 
               transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`,
-              transformOrigin: "top left"
+              transformOrigin: "top left",
+              imageRendering: "crisp-edges",
+              WebkitFontSmoothing: "antialiased",
             }}
           >
-            <EditableOverlay width={imgW} height={imgH} />
+            <EditableOverlay width={imgW} height={imgH} scale={viewState.scale} />
           </div>
         )}
 

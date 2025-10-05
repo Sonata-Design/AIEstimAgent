@@ -63,13 +63,13 @@ export default function DrawingViewer({ drawing, onFileUpload, isUploading }: Dr
   const isPdf = drawing.fileUrl?.toLowerCase().endsWith('.pdf');
 
   return (
-    <div className="flex-1 bg-slate-100 relative overflow-hidden">
+    <div className="flex-1 bg-muted/30 relative overflow-hidden">
       {/* Zoom Controls */}
-      <div className="absolute top-4 left-4 z-10 flex items-center space-x-1 bg-white rounded-lg shadow-lg border border-slate-200 p-1">
+      <div className="absolute top-4 left-4 z-10 flex items-center space-x-1 bg-card rounded-lg shadow-lg border border-border p-1">
         <Button variant="ghost" size="sm" onClick={handleZoomOut}>
           <ZoomOut className="w-4 h-4" />
         </Button>
-        <span className="text-sm text-slate-600 px-2 min-w-[60px] text-center">
+        <span className="text-sm text-muted-foreground px-2 min-w-[60px] text-center">
           {zoom}%
         </span>
         <Button variant="ghost" size="sm" onClick={handleZoomIn}>
@@ -81,27 +81,27 @@ export default function DrawingViewer({ drawing, onFileUpload, isUploading }: Dr
       </div>
 
       {/* AI Status Indicator */}
-      <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3 border border-slate-200">
+      <div className="absolute top-4 right-4 z-10 bg-card rounded-lg shadow-lg p-3 border border-border">
         <div className="flex items-center space-x-2">
           {isProcessing ? (
             <>
               <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />
-              <span className="text-sm font-medium text-slate-700">AI Processing...</span>
+              <span className="text-sm font-medium text-foreground">AI Processing...</span>
             </>
           ) : isComplete ? (
             <>
               <CheckCircle className="w-3 h-3 text-green-500" />
-              <span className="text-sm font-medium text-slate-700">AI Analysis Complete</span>
+              <span className="text-sm font-medium text-foreground">AI Analysis Complete</span>
             </>
           ) : (
             <>
               <div className="w-3 h-3 bg-slate-400 rounded-full" />
-              <span className="text-sm font-medium text-slate-700">Ready for Analysis</span>
+              <span className="text-sm font-medium text-foreground">Ready for Analysis</span>
             </>
           )}
         </div>
         {isComplete && (
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Detected: 8 doors, 12 windows, 6 rooms
           </p>
         )}
@@ -195,12 +195,12 @@ export default function DrawingViewer({ drawing, onFileUpload, isUploading }: Dr
 
       {/* Processing Overlay */}
       {isProcessing && (
-        <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-20">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-20">
+          <div className="bg-card rounded-lg p-6 max-w-sm mx-4 shadow-xl border border-border">
             <div className="text-center">
-              <Loader2 className="w-12 h-12 text-blueprint-600 animate-spin mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Processing Drawing</h3>
-              <p className="text-sm text-slate-600 mb-4">
+              <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">Processing Drawing</h3>
+              <p className="text-sm text-muted-foreground mb-4">
                 AI is analyzing your blueprint for doors, windows, and measurements...
               </p>
               <div className="w-full bg-slate-200 rounded-full h-2">

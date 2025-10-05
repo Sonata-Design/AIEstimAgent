@@ -111,11 +111,11 @@ export default function VerticalTakeoffSelector({
   };
 
   return (
-    <div className="w-80 bg-white border-r border-slate-200 flex flex-col h-full">
+    <div className="w-80 bg-background border-r border-border flex flex-col h-full">
       {/* Header */}
-      <div className="p-6 border-b border-slate-200">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Select Takeoff Types</h2>
-        <p className="text-sm text-slate-600 mb-4">Choose which building elements to detect and measure</p>
+      <div className="p-6 border-b border-border">
+        <h2 className="text-lg font-semibold text-foreground mb-2">Select Takeoff Types</h2>
+        <p className="text-sm text-muted-foreground mb-4">Choose which building elements to detect and measure</p>
         
         <div className="flex gap-2">
           <Button 
@@ -148,28 +148,43 @@ export default function VerticalTakeoffSelector({
               key={type.id} 
               className={`cursor-pointer transition-all duration-200 ${
                 isSelected 
-                  ? `${type.color} border-2 shadow-sm` 
-                  : 'border border-slate-200 hover:border-slate-300'
+                  ? 'bg-accent border-primary border-2 shadow-sm' 
+                  : 'bg-card border border-border hover:border-muted-foreground/30 hover:bg-accent/50'
               }`}
               onClick={() => handleTypeToggle(type.id)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start space-x-3">
-                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-white/80' : type.color}`}>
-                    <IconComponent className="w-5 h-5" />
+                  <div className={`p-2 rounded-lg ${
+                    isSelected 
+                      ? 'bg-primary/20' 
+                      : 'bg-muted dark:bg-muted'
+                  }`}>
+                    <IconComponent className={`w-5 h-5 ${
+                      isSelected 
+                        ? 'text-primary' 
+                        : type.id === 'openings' ? 'text-blue-600 dark:text-blue-400'
+                        : type.id === 'flooring' ? 'text-amber-600 dark:text-amber-400'
+                        : type.id === 'walls' ? 'text-slate-600 dark:text-slate-400'
+                        : type.id === 'electrical' ? 'text-yellow-600 dark:text-yellow-400'
+                        : type.id === 'plumbing' ? 'text-cyan-600 dark:text-cyan-400'
+                        : type.id === 'hvac' ? 'text-green-600 dark:text-green-400'
+                        : type.id === 'structural' ? 'text-orange-600 dark:text-orange-400'
+                        : 'text-muted-foreground'
+                    }`} />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-medium text-sm text-slate-900">{type.name}</h3>
+                      <h3 className="font-medium text-sm text-foreground">{type.name}</h3>
                       <Checkbox 
                         checked={isSelected}
                         onCheckedChange={() => handleTypeToggle(type.id)}
                         className="ml-2"
                       />
                     </div>
-                    <p className="text-xs text-slate-600 mb-2">{type.description}</p>
-                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    <p className="text-xs text-muted-foreground mb-2">{type.description}</p>
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       {type.unit}
                     </div>
                   </div>
@@ -181,15 +196,15 @@ export default function VerticalTakeoffSelector({
       </div>
 
       {/* Action Button */}
-      <div className="p-4 border-t border-slate-200 space-y-3">
+      <div className="p-4 border-t border-border space-y-3 bg-background">
         <Button 
           onClick={onRunAnalysis}
           disabled={selectedTypes.length === 0 || isAnalyzing}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {isAnalyzing ? (
             <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
               Analyzing...
             </>
           ) : (
@@ -198,14 +213,14 @@ export default function VerticalTakeoffSelector({
         </Button>
         
         {selectedTypes.length === 0 && (
-          <p className="text-xs text-slate-500 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Select at least one element type to analyze
           </p>
         )}
 
         <Button 
           variant="outline" 
-          className="w-full text-slate-600 hover:text-slate-900"
+          className="w-full"
           onClick={() => window.location.href = '/settings'}
         >
           <Settings className="w-4 h-4 mr-2" />

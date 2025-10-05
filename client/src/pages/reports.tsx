@@ -131,11 +131,11 @@ export default function Reports() {
   return (
     <Layout>
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-6">
+      <div className="bg-background border-b border-border p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">AI-Powered Reports & Analytics</h1>
-            <p className="text-slate-600 mt-1">Intelligence-driven cost analysis and project insights</p>
+            <h1 className="text-2xl font-bold text-foreground">AI-Powered Reports & Analytics</h1>
+            <p className="text-muted-foreground mt-1">Intelligence-driven cost analysis and project insights</p>
           </div>
           
           <div className="flex space-x-3">
@@ -167,7 +167,7 @@ export default function Reports() {
               </SelectContent>
             </Select>
             
-            <Button className="bg-blueprint-600 hover:bg-blueprint-700" data-testid="button-export-reports">
+            <Button className="bg-primary hover:bg-primary/90" data-testid="button-export-reports">
               <Download className="w-4 h-4 mr-2" />
               Export Analytics
             </Button>
@@ -181,8 +181,8 @@ export default function Reports() {
             {[1, 2, 3, 4].map((i: number) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
-                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-8 bg-slate-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                  <div className="h-8 bg-muted rounded w-1/2"></div>
                 </CardContent>
               </Card>
             ))}
@@ -196,8 +196,8 @@ export default function Reports() {
                   <div className="flex items-center">
                     <DollarSign className="w-8 h-8 text-green-600" />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-slate-600">Total Project Cost</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm font-medium text-muted-foreground">Total Project Cost</p>
+                      <p className="text-2xl font-bold text-foreground">
                         ${aggregateMetrics.totalCost.toLocaleString()}
                       </p>
                     </div>
@@ -210,8 +210,8 @@ export default function Reports() {
                   <div className="flex items-center">
                     <Target className="w-8 h-8 text-blue-600" />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-slate-600">Avg Efficiency Score</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm font-medium text-muted-foreground">Avg Efficiency Score</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {aggregateMetrics.avgEfficiencyScore.toFixed(1)}/100
                       </p>
                     </div>
@@ -224,8 +224,8 @@ export default function Reports() {
                   <div className="flex items-center">
                     <AlertTriangle className="w-8 h-8 text-red-600" />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-slate-600">High Risk Projects</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm font-medium text-muted-foreground">High Risk Projects</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {aggregateMetrics.highRiskProjects}
                       </p>
                     </div>
@@ -238,8 +238,8 @@ export default function Reports() {
                   <div className="flex items-center">
                     <TrendingUp className="w-8 h-8 text-purple-600" />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-slate-600">Cost Savings Opportunities</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-sm font-medium text-muted-foreground">Cost Savings Opportunities</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {aggregateMetrics.costSavingsOpportunities}
                       </p>
                     </div>
@@ -273,16 +273,16 @@ export default function Reports() {
                         <div key={level} className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <div className={`w-3 h-3 rounded-full ${colors[level as keyof typeof colors]}`} />
-                            <span className="text-sm font-medium text-slate-700 capitalize">{level}</span>
+                            <span className="text-sm font-medium text-foreground capitalize">{level}</span>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <div className="w-20 h-2 bg-slate-200 rounded">
+                            <div className="w-20 h-2 bg-muted rounded">
                               <div 
                                 className={`h-2 rounded ${colors[level as keyof typeof colors]}`}
                                 style={{ width: `${percentage}%` }}
                               />
                             </div>
-                            <span className="text-sm font-bold text-slate-900 w-12 text-right">
+                            <span className="text-sm font-bold text-foreground w-12 text-right">
                               {count}
                             </span>
                           </div>
@@ -316,16 +316,16 @@ export default function Reports() {
                         <div key={level} className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <div className={`w-3 h-3 rounded-full ${colors[level as keyof typeof colors]}`} />
-                            <span className="text-sm font-medium text-slate-700 capitalize">{level} Risk</span>
+                            <span className="text-sm font-medium text-foreground capitalize">{level} Risk</span>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <div className="w-20 h-2 bg-slate-200 rounded">
+                            <div className="w-20 h-2 bg-muted rounded">
                               <div 
                                 className={`h-2 rounded ${colors[level as keyof typeof colors]}`}
                                 style={{ width: `${percentage}%` }}
                               />
                             </div>
-                            <span className="text-sm font-bold text-slate-900 w-12 text-right">
+                            <span className="text-sm font-bold text-foreground w-12 text-right">
                               {count}
                             </span>
                           </div>
@@ -342,7 +342,7 @@ export default function Reports() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center">
-                    <BarChart3 className="w-5 h-5 mr-2 text-slate-600" />
+                    <BarChart3 className="w-5 h-5 mr-2 text-muted-foreground" />
                     Project Performance Analysis
                   </span>
                   <Button variant="outline" size="sm" data-testid="button-export-analysis">
@@ -367,11 +367,11 @@ export default function Reports() {
                         </thead>
                         <tbody>
                           {analysisData.map((item: any, index: number) => (
-                            <tr key={index} className="border-b hover:bg-slate-50">
+                            <tr key={index} className="border-b hover:bg-accent/50">
                               <td className="py-3">
                                 <div>
-                                  <p className="font-medium text-slate-900">{item?.project.name}</p>
-                                  <p className="text-xs text-slate-500">{item?.project.client}</p>
+                                  <p className="font-medium text-foreground">{item?.project.name}</p>
+                                  <p className="text-xs text-muted-foreground">{item?.project.client}</p>
                                 </div>
                               </td>
                               <td className="py-3">
@@ -429,9 +429,9 @@ export default function Reports() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <BarChart3 className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-slate-900 mb-2">No analysis data available</h3>
-                    <p className="text-slate-600 mb-4">
+                    <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No analysis data available</h3>
+                    <p className="text-muted-foreground mb-4">
                       Create projects with takeoff data to see AI-powered cost analysis and insights.
                     </p>
                   </div>

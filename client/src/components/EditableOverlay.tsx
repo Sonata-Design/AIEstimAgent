@@ -7,7 +7,11 @@ import { smartSimplify } from "../utils/polygonUtils"
 import DraggableToolbar from "./DraggableToolbar"
 import SelectionBox from "./SelectionBox"
 
-type Props = { width: number; height: number }
+type Props = { 
+  width: number; 
+  height: number;
+  scale?: number; // Canvas scale for inverse scaling of UI elements
+}
 
 const CLASS_COLORS: Record<string, string> = {
   room: "#00bcd4",
@@ -18,19 +22,26 @@ const CLASS_COLORS: Record<string, string> = {
   window: "#3f51b5",
   openings: "#3f51b5",
 }
-const STROKE_THIN = 1
+const STROKE_WIDTH = 2
+const STROKE_WIDTH_HOVER = 4
+const BASE_VERTEX_RADIUS = 6
+const BASE_VERTEX_RADIUS_SELECTED = 8
 
-export default function EditableOverlay({ width, height }: Props) {
+export default function EditableOverlay({ width, height, scale = 1 }: Props) {
   const {
     detections, setDetections, updateDetection,
     selectionMode, selectedVertices, isSelecting, selectionStart, selectionEnd,
     setSelectionMode, clearSelectedVertices, toggleVertexSelection,
     setIsSelecting, setSelectionStart, setSelectionEnd, selectVerticesInArea,
-    deleteSelectedVertices, simplifySelectedVertices
+    deleteSelectedVertices, simplifySelectedVertices,
+    hoveredDetectionId
   } = useStore()
 
   const [selectedPolygonId, setSelectedPolygonId] = React.useState<number | string | null>(null)
   const stageRef = React.useRef<any>(null)
+  
+  // Use inverse scale for UI elements to keep them constant size
+  const inverseScale = 1 / scale
 
   // Debug: Log detections when they change
   React.useEffect(() => {
@@ -89,6 +100,9 @@ export default function EditableOverlay({ width, height }: Props) {
     const pts = toPairs(d.points)
     pts[vi] = [x, y]
     updateDetection(d.id as any, { points: pts })
+    
+    // Trigger dimension recalculation (will be handled by parent component)
+    // The parent should listen to detection changes and recalculate dimensions
   }
 
   const nearestEdgeIndex = (pts: Point[], x: number, y: number) => {
@@ -306,8 +320,11 @@ export default function EditableOverlay({ width, height }: Props) {
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
         onDblClick={handleStageDoubleClick}
+        scaleX={1}
+        scaleY={1}
+        pixelRatio={2}
       >
-        <Layer listening>
+        <Layer listening imageSmoothingEnabled={false}>
           {/* Selection rectangle */}
           <SelectionBox 
             start={selectionStart}
@@ -322,37 +339,71 @@ export default function EditableOverlay({ width, height }: Props) {
           const color = CLASS_COLORS[d.cls?.toLowerCase?.()] ?? "#e91e63"
           const polygonSelected = isPolygonSelected(d)
           const hasSelectedVertices = getSelectedVerticesCount(d.id) > 0
+          const isHovered = hoveredDetectionId === d.id
+          
+          // Use constant stroke widths with inverse scaling
+          const scaledStrokeWidth = (isHovered ? STROKE_WIDTH_HOVER : STROKE_WIDTH) * inverseScale
+          const glowStrokeWidth = 10 * inverseScale
+          const shadowBlur = isHovered ? 20 * inverseScale : 0
 
           return (
             <React.Fragment key={d.id}>
+              {/* Glow effect for hovered detection */}
+              {isHovered && (
+                <Line
+                  points={flat as number[]}
+                  closed
+                  stroke={color}
+                  strokeWidth={glowStrokeWidth}
+                  fill="transparent"
+                  opacity={0.3}
+                  shadowColor={color}
+                  shadowBlur={20 * inverseScale}
+                  shadowOpacity={0.8}
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+              )}
+              
               <Line
                 points={flat as number[]}
                 closed
                 stroke={color}
-                strokeWidth={STROKE_THIN}
-                fill={polygonSelected || hasSelectedVertices ? `${color}33` : `${color}18`}
+                strokeWidth={scaledStrokeWidth}
+                fill={polygonSelected || hasSelectedVertices ? `${color}33` : isHovered ? `${color}40` : `${color}18`}
                 onClick={(e) => handlePolygonClick(e, d)}
                 onTap={(e) => handlePolygonClick(e, d)}
+                shadowColor={isHovered ? color : undefined}
+                shadowBlur={shadowBlur}
+                shadowOpacity={isHovered ? 0.5 : 0}
+                hitStrokeWidth={10 * inverseScale}
+                perfectDrawEnabled={false}
               />
 
               {/* Vertices - always visible when polygon is selected or has selected vertices */}
               {(polygonSelected || hasSelectedVertices || selectionMode === 'multi-select') && 
                 pts.map(([x, y], vi) => {
                   const vertexSelected = isVertexSelected(d.id, vi)
+                  // Apply inverse scaling to keep vertex size constant
+                  const scaledRadius = (vertexSelected ? BASE_VERTEX_RADIUS_SELECTED : BASE_VERTEX_RADIUS) * inverseScale
+                  const scaledStrokeWidth = (vertexSelected ? 3 : 2) * inverseScale
+                  
                   return (
                     <Circle
                       key={`${d.id}-${vi}`}
                       x={x}
                       y={y}
-                      radius={vertexSelected ? 6 : 5}
+                      radius={scaledRadius}
                       fill={vertexSelected ? "#2563eb" : color}
                       stroke={vertexSelected ? "#1d4ed8" : "#ffffff"}
-                      strokeWidth={vertexSelected ? 2 : 1}
+                      strokeWidth={scaledStrokeWidth}
                       draggable={selectionMode === 'normal'}
                       onDragMove={(e) => selectionMode === 'normal' && onVertexDrag(d, vi, e.target.x(), e.target.y())}
                       onClick={(e) => handleVertexClick(e, d, vi)}
                       onDblClick={(e) => handleVertexDoubleClick(e, d, vi)}
                       onTap={(e) => handleVertexClick(e, d, vi)}
+                      hitStrokeWidth={0}
+                      perfectDrawEnabled={false}
                     />
                   )
                 })}
@@ -367,6 +418,7 @@ export default function EditableOverlay({ width, height }: Props) {
                   onDone={doneEditing}
                   onSimplify={selectedVertices.length > 0 ? handleSimplify : undefined}
                   selectedVerticesCount={getSelectedVerticesCount(d.id)}
+                  scale={scale}
                 />
               )}
             </React.Fragment>

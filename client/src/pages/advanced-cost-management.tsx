@@ -129,10 +129,10 @@ export default function AdvancedCostManagement() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 space-y-6" data-testid="advanced-cost-management">
+      <div className="container mx-auto p-6 space-y-6 bg-background" data-testid="advanced-cost-management">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Advanced Cost Management</h1>
+          <h1 className="text-3xl font-bold text-foreground">Advanced Cost Management</h1>
           <p className="text-muted-foreground">
             Comprehensive cost analysis, supplier management, and pricing optimization
           </p>
