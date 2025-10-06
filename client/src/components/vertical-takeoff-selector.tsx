@@ -10,7 +10,9 @@ import {
   Hammer,
   ArrowUpDown,
   Maximize,
-  Settings
+  Settings,
+  Sparkles,
+  Loader2
 } from "lucide-react";
 
 interface TakeoffType {
@@ -200,15 +202,20 @@ export default function VerticalTakeoffSelector({
         <Button 
           onClick={onRunAnalysis}
           disabled={selectedTypes.length === 0 || isAnalyzing}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground relative overflow-hidden"
         >
           {isAnalyzing ? (
             <>
-              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-              Analyzing...
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 animate-pulse" />
+              <Loader2 className="w-4 h-4 animate-spin mr-2 relative z-10" />
+              <span className="relative z-10 animate-pulse">AI is Analyzing...</span>
+              <Sparkles className="w-4 h-4 ml-2 animate-bounce relative z-10" />
             </>
           ) : (
-            `Run AI Analysis (${selectedTypes.length} selected)`
+            <>
+              <Sparkles className="w-4 h-4 mr-2" />
+              {`Run AI Analysis (${selectedTypes.length} selected)`}
+            </>
           )}
         </Button>
         

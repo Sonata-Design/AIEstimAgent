@@ -51,6 +51,7 @@ interface InteractiveFloorPlanProps {
   calibrationPoints?: { x: number; y: number }[];
   onCalibrationClick?: (x: number, y: number) => void;
   isPanMode?: boolean;
+  hiddenElements?: Set<string>;
 }
 
 const MIN_SCALE = 0.25;
@@ -68,22 +69,36 @@ export default function InteractiveFloorPlan({
   isCalibrating = false,
   calibrationPoints = [],
   onCalibrationClick,
-  isPanMode = false
+  isPanMode = false,
+  hiddenElements = new Set()
 }: InteractiveFloorPlanProps) {
   const [viewState, setViewState] = useState({ scale: 1, offsetX: 50, offsetY: 50 });
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Flatten all detections to render easily
+  // Flatten all detections to render easily, filtering out hidden elements
   const detections: DetectionItem[] = useMemo(() => {
     if (!analysisResults?.predictions) return [];
-    return [
+    const allDetections = [
       ...(analysisResults.predictions.openings || []),
       ...(analysisResults.predictions.rooms || []),
       ...(analysisResults.predictions.walls || []),
     ];
-  }, [analysisResults]);
+    console.log(`[FloorPlan] Total detections: ${allDetections.length}, Hidden: ${hiddenElements.size}`);
+    console.log(`[FloorPlan] All detection IDs:`, allDetections.map(d => `${d.id} (${d.class})`));
+    console.log(`[FloorPlan] Hidden IDs:`, Array.from(hiddenElements));
+    const visibleDetections = allDetections.filter(det => {
+      const isHidden = hiddenElements.has(det.id);
+      if (isHidden) {
+        console.log(`[FloorPlan] Hiding element ${det.id} (${det.class})`);
+      }
+      return !isHidden;
+    });
+    console.log(`[FloorPlan] Visible detections: ${visibleDetections.length}`);
+    console.log(`[FloorPlan] Visible IDs:`, visibleDetections.map(d => `${d.id} (${d.class})`));
+    return visibleDetections;
+  }, [analysisResults, hiddenElements]);
 
   // Convert API detections to store format for EditableOverlay
   const storeDetections: StoreDetection[] = useMemo(() => {

@@ -5,6 +5,9 @@ import DrawingViewer from "@/components/drawing-viewer";
 import InteractiveFloorPlan from "@/components/interactive-floor-plan";
 import VerticalTakeoffSelector from "@/components/vertical-takeoff-selector";
 import OrganizedTakeoffPanel from "@/components/organized-takeoff-panel";
+import { CollapsibleTakeoffSelector } from "@/components/collapsible-takeoff-selector";
+import { ElementListPanel } from "@/components/element-list-panel";
+import { CollapsiblePanel } from "@/components/collapsible-panel";
 import { ReportGeneratorComponent } from "@/components/report-generator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import CalibrationTool from "@/components/calibration-tool";
@@ -20,6 +23,8 @@ import type { Detection } from "@/store/useDetectionsStore";
 import { useStore } from "@/store/useStore";
 import { recalculateDimensions } from "@/utils/dimensionCalculator";
 import { toPairs } from "@/utils/geometry";
+import { compressImage, formatFileSize } from "@/utils/imageOptimizer";
+import { AnalysisLoading } from "@/components/analysis-loading";
 
 const isDetection = (value: unknown): value is Detection => {
   if (!value || typeof value !== "object") return false;
@@ -36,6 +41,7 @@ export default function Dashboard() {
   const [selectedTakeoffTypes, setSelectedTakeoffTypes] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
@@ -48,6 +54,8 @@ export default function Dashboard() {
   const [customPixelsPerFoot, setCustomPixelsPerFoot] = useState<number | null>(null);
   const [isPanMode, setIsPanMode] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [hiddenElements, setHiddenElements] = useState<Set<string>>(new Set());
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
   const { toast } = useToast();
   // MODIFICATION: The Zustand hook is now called at the top level, which is correct.
@@ -167,8 +175,21 @@ export default function Dashboard() {
     setDetections([]); // Clear previous detections on new upload
 
     try {
+      // Optimize image before upload
+      setUploadProgress('Optimizing image...');
+      const originalSize = formatFileSize(file.size);
+      const optimizedFile = await compressImage(file, {
+        maxWidth: 2048,
+        maxHeight: 2048,
+        quality: 0.85,
+        maxSizeMB: 5
+      });
+      const newSize = formatFileSize(optimizedFile.size);
+      console.log(`Image optimized: ${originalSize} → ${newSize}`);
+      
+      setUploadProgress('Uploading to server...');
       const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
+      uploadFormData.append('file', optimizedFile);
       const uploadResult = await apiRequest(createApiUrl('/api/upload'), 'POST', uploadFormData, true);
 
       let projectToUse = currentProject || await createNewProject(file.name);
@@ -192,14 +213,36 @@ export default function Dashboard() {
       toast({ title: "Upload Failed", description: error instanceof Error ? error.message : "An unknown error occurred", variant: "destructive" });
     } finally {
       setIsUploading(false);
+      setUploadProgress('');
     }
+  };
+
+  const handleElementVisibilityToggle = (elementId: string, visible: boolean) => {
+    console.log(`[Dashboard] Element ${elementId} visibility changed to ${visible}`);
+    setHiddenElements(prevHidden => {
+      const newHidden = new Set(prevHidden);
+      if (visible) {
+        newHidden.delete(elementId);
+        console.log(`[Dashboard] Removed ${elementId} from hidden set`);
+      } else {
+        newHidden.add(elementId);
+        console.log(`[Dashboard] Added ${elementId} to hidden set`);
+      }
+      console.log(`[Dashboard] Hidden elements count: ${newHidden.size}`);
+      return newHidden;
+    });
+  };
+
+  const handleElementDelete = (elementId: string) => {
+    // Implement element deletion logic
+    console.log('Delete element:', elementId);
   };
 
   return (
     <Layout>
       <div className="flex h-full overflow-hidden">
         <div className="hidden lg:flex">
-          <VerticalTakeoffSelector
+          <CollapsibleTakeoffSelector
             selectedTypes={selectedTakeoffTypes}
             onSelectionChange={setSelectedTakeoffTypes}
             onRunAnalysis={handleRunAnalysis}
@@ -333,32 +376,58 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <InteractiveFloorPlan
-              drawing={currentDrawing}
-              highlightedElement={highlightedElement}
-              activeViewMode={activeViewMode}
-              activeTool={activeTool}
-              selectedScale={selectedScale}
-              onElementClick={() => { }}
-              onMeasurement={() => { }}
-              analysisResults={analysisResults}
-              isCalibrating={isCalibrating}
-              calibrationPoints={calibrationPoints}
-              isPanMode={isPanMode}
-              onCalibrationClick={(x, y) => {
-                if (calibrationPoints.length < 2) {
-                  setCalibrationPoints([...calibrationPoints, { x, y }]);
-                }
-              }}
-            />
+            {isAnalyzing ? (
+              <div className="flex-1 flex items-center justify-center">
+                <AnalysisLoading stage="analyzing" />
+              </div>
+            ) : (
+              <>
+                <InteractiveFloorPlan
+                  drawing={currentDrawing}
+                  highlightedElement={selectedElementId}
+                  activeViewMode={activeViewMode}
+                  activeTool={activeTool}
+                  selectedScale={selectedScale}
+                  onElementClick={setSelectedElementId}
+                  onMeasurement={() => { }}
+                  analysisResults={analysisResults}
+                  isCalibrating={isCalibrating}
+                  calibrationPoints={calibrationPoints}
+                  isPanMode={isPanMode}
+                  hiddenElements={hiddenElements}
+                  onCalibrationClick={(x, y) => {
+                    if (calibrationPoints.length < 2) {
+                      setCalibrationPoints([...calibrationPoints, { x, y }]);
+                    }
+                  }}
+                />
 
-            {!currentDrawing && (
-              <DrawingViewer drawing={null} onFileUpload={handleFileUpload} isUploading={isUploading} />
+                {!currentDrawing && (
+                  <DrawingViewer 
+                    drawing={null} 
+                    onFileUpload={handleFileUpload} 
+                    isUploading={isUploading}
+                  />
+                )}
+                
+                {isUploading && uploadProgress && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                    <div className="bg-card p-6 rounded-lg shadow-lg border border-border">
+                      <p className="text-sm text-muted-foreground">{uploadProgress}</p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </main>
 
-        <div className="w-96 flex-col hidden lg:flex">
+        <CollapsiblePanel
+          side="right"
+          expandedWidth={384}
+          collapsedWidth={64}
+          className="hidden lg:flex flex-col"
+        >
           <div className="bg-card p-4 border-b border-border">
             <div className="flex items-center space-x-2">
               <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
@@ -468,14 +537,15 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <OrganizedTakeoffPanel
-            drawing={currentDrawing}
-            selectedTypes={selectedTakeoffTypes}
-            isAnalyzing={isAnalyzing}
-            onStartAnalysis={handleRunAnalysis}
+          <ElementListPanel
             analysisResults={analysisResults}
+            onElementVisibilityToggle={handleElementVisibilityToggle}
+            onElementSelect={setSelectedElementId}
+            onElementDelete={handleElementDelete}
+            selectedElementId={selectedElementId}
+            hiddenElements={hiddenElements}
           />
-        </div>
+        </CollapsiblePanel>
       </div>
     </Layout>
   );
