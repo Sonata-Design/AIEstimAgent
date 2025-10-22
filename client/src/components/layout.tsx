@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Home, Folder, BarChart3, DollarSign } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import estimagentLogo from "@/assets/EstimAgent.png";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,9 +17,11 @@ export default function Layout({ children }: LayoutProps) {
         <div className="relative flex items-center px-4 md:px-6 py-2">
           <div className="flex items-center">
             <Link href="/">
-              <span className="text-xl font-bold text-foreground cursor-pointer">
-                EstimAgent
-              </span>
+              <img 
+                src={estimagentLogo} 
+                alt="EstimAgent" 
+                className="h-10 w-auto object-contain cursor-pointer dark:invert"
+              />
             </Link>
           </div>
 

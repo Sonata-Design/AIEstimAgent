@@ -6,11 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, PlayCircle } from "lucide-react";
+import { Loader2, PlayCircle, Trash2, Check, X } from "lucide-react";
 import type { Drawing } from "@shared/schema";
 import { useStore } from "@/store/useStore";
+import { useDetectionsStore } from "@/store/useDetectionsStore";
 import { recalculateDimensions } from "@/utils/dimensionCalculator";
 import { toPairs } from "@/utils/geometry";
+import { DETECTION_COLORS, getDetectionColor } from "@/config/colors";
+import { useUnits } from "@/hooks/useUnits";
+import { useToast } from "@/hooks/use-toast";
 
 type MaskPoint = { x: number; y: number };
 interface DetectionItem {
@@ -56,11 +60,50 @@ export default function RealtimeAnalysisPanel({
   analysisResults
 }: Props) {
   const [roomEdits, setRoomEdits] = useState<Record<string, string>>({});
-  const { setHoveredDetectionId } = useStore();
+  const [showColorLegend, setShowColorLegend] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const { setHoveredDetectionId, removeDetection: removeFromStore, updateDetection } = useStore();
+  const { detections: allDetections, setDetections: setAllDetections } = useDetectionsStore();
   const storeDetections = useStore(s => s.detections);
+  const { formatArea, formatDistance, getAreaUnit, getDistanceUnit } = useUnits();
+  const { toast } = useToast();
   
   // Get pixels per foot for dimension calculation (assuming 1/4" = 1' scale)
   const pixelsPerFoot = 48; // TODO: Get this from actual scale setting
+  
+  // Handle delete from panel with toast feedback
+  const handleDelete = (id: string) => {
+    const detection = allDetections.find(d => d.id === id);
+    const name = detection?.name || detection?.cls || "Element";
+    
+    // Remove from both stores
+    removeFromStore(id);
+    setAllDetections(allDetections.filter(d => d.id !== id));
+    
+    toast({
+      title: "Element deleted",
+      description: `${name} has been removed`,
+      duration: 3000,
+    });
+  };
+  
+  // Handle rename with toast feedback
+  const handleRename = (id: string, newName: string) => {
+    // Update in store
+    updateDetection(id, { name: newName });
+    // Update in detections store
+    setAllDetections(allDetections.map(d => 
+      d.id === id ? { ...d, name: newName } : d
+    ));
+    setEditingId(null);
+    
+    toast({
+      title: "Renamed",
+      description: `Element renamed to "${newName}"`,
+      duration: 2000,
+    });
+  };
 
   const cats = useMemo(() => {
     const p = analysisResults?.predictions || {};
@@ -120,6 +163,39 @@ export default function RealtimeAnalysisPanel({
           </div>
         )}
 
+        {/* Color Legend */}
+        {showColorLegend && (cats.rooms.length > 0 || cats.walls.length > 0 || cats.openings.length > 0) && (
+          <div className="mt-3 p-2 bg-muted/30 rounded-lg border border-border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Color Legend</span>
+              <button 
+                onClick={() => setShowColorLegend(false)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DETECTION_COLORS.room }} />
+                <span className="text-xs text-foreground">Rooms</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DETECTION_COLORS.wall }} />
+                <span className="text-xs text-foreground">Walls</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DETECTION_COLORS.door }} />
+                <span className="text-xs text-foreground">Doors</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DETECTION_COLORS.window }} />
+                <span className="text-xs text-foreground">Windows</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* quick totals */}
         <div className="space-y-3 mt-4">
           {/* Openings Card */}
@@ -153,8 +229,7 @@ export default function RealtimeAnalysisPanel({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-xs text-muted-foreground">Total Area</div>
-                <div className="text-2xl font-bold text-foreground">{number(totals.roomArea, 1)}</div>
-                <div className="text-xs text-muted-foreground">sq ft</div>
+                <div className="text-2xl font-bold text-foreground">{formatArea(totals.roomArea || 0)}</div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Perimeter</div>
@@ -215,22 +290,66 @@ export default function RealtimeAnalysisPanel({
               {cats.rooms.map(r => (
                 <Card 
                   key={r.id} 
-                  className="p-3 hover:bg-accent/50 bg-card border-border cursor-pointer transition-all"
+                  className="p-3 hover:bg-accent/50 bg-card border-l-4 transition-all group"
+                  style={{ borderLeftColor: getDetectionColor(r.class) }}
                   onMouseEnter={() => setHoveredDetectionId(r.id)}
                   onMouseLeave={() => setHoveredDetectionId(null)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <Input
-                      className="h-8"
-                      value={editedName(r.id, r.name ?? r.class ?? "Room")}
-                      onChange={(e) => setRoomEdits(s => ({ ...s, [r.id]: e.target.value }))}
-                      onMouseEnter={(e) => e.stopPropagation()}
-                    />
-                    <Badge variant="outline">{Math.round((r.confidence ?? 0) * 100)}%</Badge>
+                    <div className="flex items-center gap-2 flex-1">
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: getDetectionColor(r.class) }}
+                      />
+                      {editingId === r.id ? (
+                        <div className="flex items-center gap-1 flex-1">
+                          <Input
+                            className="h-8 flex-1"
+                            value={roomEdits[r.id] ?? r.name ?? r.class ?? "Room"}
+                            onChange={(e) => setRoomEdits(s => ({ ...s, [r.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRename(r.id, roomEdits[r.id] ?? r.name ?? r.class);
+                              if (e.key === 'Escape') setEditingId(null);
+                            }}
+                            autoFocus
+                          />
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRename(r.id, roomEdits[r.id] ?? r.name ?? r.class)}>
+                            <Check className="w-4 h-4 text-green-600" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingId(null)}>
+                            <X className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div 
+                          className="flex-1 text-sm font-medium cursor-pointer hover:text-primary"
+                          onClick={() => {
+                            setEditingId(r.id);
+                            setRoomEdits(s => ({ ...s, [r.id]: r.name ?? r.class ?? "Room" }));
+                          }}
+                        >
+                          {r.name ?? r.class ?? "Room"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{Math.round((r.confidence ?? 0) * 100)}%</Badge>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(r.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs mt-2">
-                    <div>Area: <span className="font-medium">{number(r.display?.area_sqft, 1)}</span> sq ft</div>
-                    <div>Perimeter: <span className="font-medium">{number(r.display?.perimeter_ft, 1)}</span> ft</div>
+                    <div>Area: <span className="font-medium">{formatArea(r.display?.area_sqft || 0)}</span></div>
+                    <div>Perimeter: <span className="font-medium">{formatDistance(r.display?.perimeter_ft || 0)}</span></div>
                     <div>Class: <span className="font-medium">{r.class}</span></div>
                   </div>
                 </Card>
@@ -259,20 +378,37 @@ export default function RealtimeAnalysisPanel({
                       {items.map((o, idx) => (
                         <div 
                           key={o.id} 
-                          className="p-2 rounded hover:bg-accent/50 border border-border bg-card cursor-pointer transition-all"
+                          className="p-2 rounded hover:bg-accent/50 border-l-4 border-r border-t border-b bg-card transition-all group"
+                          style={{ borderLeftColor: getDetectionColor(o.class) }}
                           onMouseEnter={() => setHoveredDetectionId(o.id)}
                           onMouseLeave={() => setHoveredDetectionId(null)}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                              <div 
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                                style={{ backgroundColor: getDetectionColor(o.class) }}
+                              >
                                 {idx + 1}
                               </div>
                               <span className="text-sm text-foreground capitalize">{o.class}</span>
                             </div>
-                            <Badge variant="secondary" className="text-xs">
-                              {Math.round((o.confidence ?? 0) * 100)}%
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs">
+                                {Math.round((o.confidence ?? 0) * 100)}%
+                              </Badge>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(o.id);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3 text-red-600" />
+                              </Button>
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs ml-8">
                             <div>
@@ -309,13 +445,33 @@ export default function RealtimeAnalysisPanel({
               {cats.walls.map(w => (
                 <Card 
                   key={w.id} 
-                  className="p-3 hover:bg-accent/50 bg-card border-border cursor-pointer transition-all"
+                  className="p-3 hover:bg-accent/50 bg-card border-l-4 transition-all group"
+                  style={{ borderLeftColor: getDetectionColor(w.class) }}
                   onMouseEnter={() => setHoveredDetectionId(w.id)}
                   onMouseLeave={() => setHoveredDetectionId(null)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">{w.class}</div>
-                    <Badge variant="outline">{Math.round((w.confidence ?? 0) * 100)}%</Badge>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: getDetectionColor(w.class) }}
+                      />
+                      <div className="text-sm font-medium">{w.class}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{Math.round((w.confidence ?? 0) * 100)}%</Badge>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(w.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                     <div>Length: <span className="font-medium">{number(w.display?.perimeter_ft, 1)}</span> LF</div>

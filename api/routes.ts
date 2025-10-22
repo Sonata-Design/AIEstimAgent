@@ -333,10 +333,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid analysis results" });
       }
 
-      const createdTakeoffs: any[] = [];
-      
       // Handle both old format (results.models) and new format (results.predictions)
       const predictions = results.predictions || results.models || {};
+      
+      // Collect all takeoff data first (no DB calls yet)
+      const takeoffsToCreate: any[] = [];
       
       // Process each prediction category
       for (const [categoryType, detections] of Object.entries(predictions)) {
@@ -375,10 +376,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             takeoffData.unit = 'count';
           }
           
-          const takeoff = await storage.createTakeoff(takeoffData);
-          createdTakeoffs.push(takeoff);
+          takeoffsToCreate.push(takeoffData);
         }
       }
+
+      // Batch insert all takeoffs in a single DB call (much faster!)
+      const createdTakeoffs = await storage.createTakeoffsBatch(takeoffsToCreate);
 
       // Update drawing status to complete
       await storage.updateDrawing(drawingId, { status: 'complete', aiProcessed: true });

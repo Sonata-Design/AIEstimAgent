@@ -279,12 +279,26 @@ def _normalize_predictions(
                 pixel_area = _calculate_polygon_area(item["mask"])
                 pixel_perimeter = _calculate_polygon_perimeter(item["mask"])
                 
+                # Debug logging for room calculations
+                if class_name and "room" in class_name.lower():
+                    print(f"[ML] Room '{class_name}' calculation:")
+                    print(f"  - Pixel area: {pixel_area:.2f} px²")
+                    print(f"  - Pixel perimeter: {pixel_perimeter:.2f} px")
+                    print(f"  - Scale factor: {scale}")
+                    print(f"  - Pixels per foot: {scale * 96 if scale else 'N/A'}")
+                
                 # Add display metrics based on detection type
                 if class_name and "room" in class_name.lower():
                     # For rooms: area_sqft and perimeter_ft
+                    area_sqft = _convert_to_real_units(pixel_area, scale, "sq ft")
+                    perimeter_ft = _convert_to_real_units(pixel_perimeter, scale, "ft")
+                    
+                    print(f"  - Converted area: {area_sqft:.2f} sq ft")
+                    print(f"  - Converted perimeter: {perimeter_ft:.2f} ft")
+                    
                     item["display"].update({
-                        "area_sqft": _convert_to_real_units(pixel_area, scale, "sq ft"),
-                        "perimeter_ft": _convert_to_real_units(pixel_perimeter, scale, "ft"),
+                        "area_sqft": area_sqft,
+                        "perimeter_ft": perimeter_ft,
                     })
                 elif class_name and "wall" in class_name.lower():
                     # For walls: perimeter_ft (length) and area_sqft
@@ -445,12 +459,33 @@ async def analyze(
             )
 
         # Get image dimensions with error handling
-        img_w, img_h = _image_size_from_bytes(data)
+        original_img_w, original_img_h = _image_size_from_bytes(data)
+        
+        # Resize image to max 1536px to speed up Roboflow API
+        # This significantly reduces upload time and processing time
+        MAX_DIMENSION = 1536
+        img = Image.open(io.BytesIO(data))
+        
+        # Calculate scaling factor
+        scale_factor = 1.0
+        if max(original_img_w, original_img_h) > MAX_DIMENSION:
+            scale_factor = MAX_DIMENSION / max(original_img_w, original_img_h)
+            new_w = int(original_img_w * scale_factor)
+            new_h = int(original_img_h * scale_factor)
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            print(f"[ML] Resized image from {original_img_w}x{original_img_h} to {new_w}x{new_h} (factor: {scale_factor:.2f})")
+        else:
+            new_w, new_h = original_img_w, original_img_h
+            print(f"[ML] Image size {original_img_w}x{original_img_h} is within limit, no resize needed")
+        
+        # Use resized dimensions for inference
+        img_w, img_h = new_w, new_h
 
         ext = os.path.splitext(file.filename or "")[-1].lower() or ".jpg"
         temp_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}{ext}")
-        with open(temp_path, "wb") as f:
-            f.write(data)
+        
+        # Save resized image
+        img.save(temp_path, quality=85, optimize=True)
 
         # Inference kwargs
         infer_kwargs: Dict[str, Any] = {}

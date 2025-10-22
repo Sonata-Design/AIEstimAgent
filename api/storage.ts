@@ -55,6 +55,7 @@ export interface IStorage {
   getTakeoff(id: string): Promise<Takeoff | undefined>;
   getTakeoffsByDrawing(drawingId: string): Promise<Takeoff[]>;
   createTakeoff(takeoff: InsertTakeoff): Promise<Takeoff>;
+  createTakeoffsBatch(takeoffs: InsertTakeoff[]): Promise<Takeoff[]>;
   updateTakeoff(id: string, takeoff: Partial<InsertTakeoff>): Promise<Takeoff | undefined>;
   deleteTakeoff(id: string): Promise<boolean>;
   
@@ -450,6 +451,21 @@ export class DatabaseStorage implements IStorage {
       .values({ ...insertTakeoff, id: randomUUID() })
       .returning();
     return takeoff;
+  }
+
+  async createTakeoffsBatch(insertTakeoffs: InsertTakeoff[]): Promise<Takeoff[]> {
+    if (insertTakeoffs.length === 0) return [];
+    
+    // Add IDs to all takeoffs
+    const takeoffsWithIds = insertTakeoffs.map(t => ({ ...t, id: randomUUID() }));
+    
+    // Batch insert all takeoffs in a single query
+    const createdTakeoffs = await db
+      .insert(takeoffs)
+      .values(takeoffsWithIds)
+      .returning();
+    
+    return createdTakeoffs;
   }
 
   async updateTakeoff(id: string, updateData: Partial<InsertTakeoff>): Promise<Takeoff | undefined> {

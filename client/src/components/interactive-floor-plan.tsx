@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
-import type { Drawing } from "@shared/schema";
+import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import EditableOverlay from "./EditableOverlay";
-import { useStore } from "../store/useStore";
-import type { Detection as StoreDetection } from "../store/useStore";
+import { useStore, type Detection as StoreDetection } from "@/store/useStore";
+import { useDetectionsStore } from "@/store/useDetectionsStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import type { Drawing } from "@shared/schema";
 import { smartSimplify } from "../utils/polygonUtils";
 
 type MaskPoint = { x: number; y: number };
@@ -52,6 +53,10 @@ interface InteractiveFloorPlanProps {
   onCalibrationClick?: (x: number, y: number) => void;
   isPanMode?: boolean;
   hiddenElements?: Set<string>;
+  measurementMode?: 'distance' | 'area' | null;
+  onMeasurementClick?: (point: [number, number]) => void;
+  onMeasurementComplete?: () => void;
+  onMeasurementRightClick?: () => void;
 }
 
 const MIN_SCALE = 0.25;
@@ -70,12 +75,25 @@ export default function InteractiveFloorPlan({
   calibrationPoints = [],
   onCalibrationClick,
   isPanMode = false,
-  hiddenElements = new Set()
+  hiddenElements = new Set(),
+  measurementMode = null,
+  onMeasurementClick,
+  onMeasurementComplete,
+  onMeasurementRightClick
 }: InteractiveFloorPlanProps) {
   const [viewState, setViewState] = useState({ scale: 1, offsetX: 50, offsetY: 50 });
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Get grid settings
+  const { showGrid, gridSize } = useSettingsStore();
+  
+  // Get all detections including manual rooms
+  const allDetectionsFromStore = useDetectionsStore(state => state.detections);
+  
+  // Get synced detections from useStore (for overlay rendering check)
+  const syncedStoreDetections = useStore(state => state.detections);
 
   // Flatten all detections to render easily, filtering out hidden elements
   const detections: DetectionItem[] = useMemo(() => {
@@ -86,12 +104,14 @@ export default function InteractiveFloorPlan({
       ...(analysisResults.predictions.walls || []),
     ];
     console.log(`[FloorPlan] Total detections: ${allDetections.length}, Hidden: ${hiddenElements.size}`);
-    console.log(`[FloorPlan] All detection IDs:`, allDetections.map(d => `${d.id} (${d.class})`));
+    console.log(`[FloorPlan] All detection IDs:`, allDetections.map(d => `${d.id} (${d.class}) [type: ${typeof d.id}]`));
     console.log(`[FloorPlan] Hidden IDs:`, Array.from(hiddenElements));
     const visibleDetections = allDetections.filter(det => {
-      const isHidden = hiddenElements.has(det.id);
+      // Ensure consistent string comparison
+      const detId = String(det.id);
+      const isHidden = hiddenElements.has(detId);
       if (isHidden) {
-        console.log(`[FloorPlan] Hiding element ${det.id} (${det.class})`);
+        console.log(`[FloorPlan] Hiding element ${detId} (${det.class})`);
       }
       return !isHidden;
     });
@@ -125,14 +145,33 @@ export default function InteractiveFloorPlan({
     });
   }, [detections]);
 
-  // Sync detections to store when they change
-  const { setDetections: setStoreDetections } = useStore();
+  // Sync detections to store when they change, preserving manual rooms
+  const { setDetections: setStoreDetections, detections: currentStoreDetections } = useStore();
   useEffect(() => {
-    console.log('Syncing detections to store:', storeDetections.length, storeDetections);
-    if (storeDetections.length > 0) {
-      setStoreDetections(storeDetections);
-    }
-  }, [storeDetections, setStoreDetections]);
+    console.log('[FloorPlan] Syncing detections to store:', storeDetections.length, storeDetections);
+    
+    // Preserve manual rooms (those with isManual flag) from current store
+    const manualRooms = currentStoreDetections.filter((d: any) => d.isManual);
+    console.log('[FloorPlan] Manual rooms to preserve:', manualRooms.length);
+    console.log('[FloorPlan] Current store detections:', currentStoreDetections.map((d: any) => ({ id: d.id, cls: d.cls, isManual: d.isManual })));
+    
+    // Combine AI detections with manual rooms
+    const combinedDetections = [...storeDetections, ...manualRooms];
+    
+    // Always update, even if empty (but preserve manual rooms)
+    setStoreDetections(combinedDetections);
+    console.log('[FloorPlan] ✅ Store updated with', combinedDetections.length, 'detections');
+  }, [storeDetections]); // Remove setStoreDetections from deps to prevent infinite loop
+  
+  // Debug: Log when overlay should render
+  useEffect(() => {
+    console.log('[FloorPlan] Overlay render check:', {
+      isCalibrating,
+      syncedStoreDetections: syncedStoreDetections.length,
+      measurementMode,
+      shouldRender: !isCalibrating && (syncedStoreDetections.length > 0 || measurementMode)
+    });
+  }, [isCalibrating, syncedStoreDetections.length, measurementMode]);
 
   const screenToImageCoords = useCallback((sx: number, sy: number) => {
     if (!containerRef.current) return { x: 0, y: 0 };
@@ -203,38 +242,108 @@ export default function InteractiveFloorPlan({
         <Slider value={[viewState.scale]} onValueChange={handleSliderChange} min={MIN_SCALE} max={MAX_SCALE} step={0.01} className="w-24" />
         <Button variant="ghost" size="sm" onClick={handleZoomIn}><ZoomIn className="w-4 h-4" /></Button>
         <span className="text-sm text-muted-foreground px-2 min-w-[50px] text-center border-l border-border">{Math.round(viewState.scale * 100)}%</span>
-        <Button variant="ghost" size="sm" onClick={handleFitToScreen} className="border-l border-border"><Maximize className="w-4 h-4" /></Button>
+        <Button variant="ghost" size="sm" onClick={handleFitToScreen} className="border-l border-border"><Maximize2 className="w-4 h-4" /></Button>
       </div>
 
       <div
         ref={containerRef}
         className={`absolute inset-0 ${isCalibrating ? 'cursor-crosshair' : isPanMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
-        onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+        onMouseDown={isPanMode ? handleMouseDown : undefined}
+        onMouseMove={isPanMode ? handleMouseMove : undefined}
+        onMouseUp={isPanMode ? handleMouseUp : undefined}
+        onMouseLeave={isPanMode ? handleMouseUp : undefined}
+        style={{ overflow: 'hidden', pointerEvents: isPanMode ? 'auto' : 'none' }}
       >
         {/* Background image layer */}
         <div
-          className="bg-white border-2 border-slate-300 relative pointer-events-none"
-          style={{ width: `${imgW}px`, height: `${imgH}px`, transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`, transformOrigin: "top left" }}
+          className="bg-white relative pointer-events-none"
+          style={{ 
+            width: `${imgW}px`, 
+            height: `${imgH}px`, 
+            transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`, 
+            transformOrigin: "top left",
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            imageRendering: 'crisp-edges',
+          }}
         >
           {drawing.fileUrl ? (
-            <img src={drawing.fileUrl} alt={drawing.name} className="w-full h-full object-contain" />
+            <img 
+              src={drawing.fileUrl} 
+              alt={drawing.name} 
+              className="w-full h-full object-contain"
+              style={{ 
+                display: 'block',
+                imageRendering: 'crisp-edges',
+              }}
+            />
           ) : (
             <div className="flex items-center justify-center w-full h-full bg-gray-100"><span className="text-gray-500">No floor plan image available</span></div>
           )}
         </div>
 
-        {/* EditableOverlay for interactive mask editing - positioned absolutely to match image */}
-        {!isCalibrating && storeDetections.length > 0 && (
+        {/* Grid Overlay */}
+        {showGrid && (
+          <svg
+            className="absolute top-0 left-0 pointer-events-none"
+            style={{
+              width: `${imgW}px`,
+              height: `${imgH}px`,
+              transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`,
+              transformOrigin: "top left",
+              opacity: 0.3,
+            }}
+            viewBox={`0 0 ${imgW} ${imgH}`}
+            preserveAspectRatio="none"
+          >
+            {/* Vertical grid lines */}
+            {Array.from({ length: Math.ceil(imgW / gridSize) + 1 }).map((_, i) => (
+              <line
+                key={`v-${i}`}
+                x1={i * gridSize}
+                y1={0}
+                x2={i * gridSize}
+                y2={imgH}
+                stroke="#3b82f6"
+                strokeWidth={1 / viewState.scale}
+              />
+            ))}
+            {/* Horizontal grid lines */}
+            {Array.from({ length: Math.ceil(imgH / gridSize) + 1 }).map((_, i) => (
+              <line
+                key={`h-${i}`}
+                x1={0}
+                y1={i * gridSize}
+                x2={imgW}
+                y2={i * gridSize}
+                stroke="#3b82f6"
+                strokeWidth={1 / viewState.scale}
+              />
+            ))}
+          </svg>
+        )}
+
+        {/* EditableOverlay for interactive mask editing and measurements - positioned absolutely to match image */}
+        {!isCalibrating && (syncedStoreDetections.length > 0 || measurementMode) && (
           <div 
-            className="absolute top-0 left-0 pointer-events-auto"
+            className="absolute top-0 left-0"
             style={{ 
               transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`,
               transformOrigin: "top left",
               imageRendering: "crisp-edges",
               WebkitFontSmoothing: "antialiased",
+              pointerEvents: 'none', // Let clicks pass through the wrapper
             }}
           >
-            <EditableOverlay width={imgW} height={imgH} scale={viewState.scale} />
+            <EditableOverlay 
+              width={imgW} 
+              height={imgH} 
+              scale={viewState.scale}
+              measurementMode={measurementMode}
+              onMeasurementClick={onMeasurementClick}
+              onMeasurementComplete={onMeasurementComplete}
+              onMeasurementRightClick={onMeasurementRightClick}
+              hiddenElements={hiddenElements}
+            />
           </div>
         )}
 

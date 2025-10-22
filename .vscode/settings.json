@@ -1,10 +1,9 @@
 {
+  "json.schemaDownload.enable": false,
   "json.schemas": [
     {
       "fileMatch": ["package.json"],
-      "schema": {
-        "type": "object"
-      }
+      "url": "https://json.schemastore.org/package.json"
     }
   ],
   "css.validate": false,

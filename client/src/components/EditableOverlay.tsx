@@ -2,51 +2,78 @@ import React from "react"
 import { Stage, Layer, Line, Circle } from "react-konva"
 import { v4 as uuidv4 } from "uuid"
 import { useStore, type Point, type Detection, type SelectedVertex } from "../store/useStore"
+import { useSettingsStore } from "../store/useSettingsStore"
 import { toPairs } from "../utils/geometry"
 import { smartSimplify } from "../utils/polygonUtils"
 import DraggableToolbar from "./DraggableToolbar"
 import SelectionBox from "./SelectionBox"
+import { MeasurementLayer } from "./MeasurementLayer"
+import { useMeasurementStore } from "../store/useMeasurementStore"
+import { DETECTION_COLORS, OPACITY, getDetectionColor } from "../config/colors"
 
 type Props = { 
   width: number; 
   height: number;
   scale?: number; // Canvas scale for inverse scaling of UI elements
-}
-
-const CLASS_COLORS: Record<string, string> = {
-  room: "#00bcd4",
-  rooms: "#00bcd4",
-  wall: "#ff9800",
-  walls: "#ff9800",
-  door: "#4caf50",
-  window: "#3f51b5",
-  openings: "#3f51b5",
+  measurementMode?: 'distance' | 'area' | null;
+  onMeasurementClick?: (point: Point) => void;
+  onMeasurementComplete?: () => void;
+  onMeasurementRightClick?: () => void;
+  hiddenElements?: Set<string>;
 }
 const STROKE_WIDTH = 2
 const STROKE_WIDTH_HOVER = 4
 const BASE_VERTEX_RADIUS = 6
 const BASE_VERTEX_RADIUS_SELECTED = 8
 
-export default function EditableOverlay({ width, height, scale = 1 }: Props) {
+export default function EditableOverlay({ 
+  width, 
+  height, 
+  scale = 1,
+  measurementMode = null,
+  onMeasurementClick,
+  onMeasurementComplete,
+  onMeasurementRightClick,
+  hiddenElements = new Set()
+}: Props) {
   const {
     detections, setDetections, updateDetection,
     selectionMode, selectedVertices, isSelecting, selectionStart, selectionEnd,
     setSelectionMode, clearSelectedVertices, toggleVertexSelection,
     setIsSelecting, setSelectionStart, setSelectionEnd, selectVerticesInArea,
-    deleteSelectedVertices, simplifySelectedVertices,
-    hoveredDetectionId
+    deleteSelectedVertices, simplifySelectedVertices, hoveredDetectionId, setHoveredDetectionId
   } = useStore()
-
+  
+  // Get snap-to-grid settings
+  const { snapToGrid, gridSize } = useSettingsStore()
+  
   const [selectedPolygonId, setSelectedPolygonId] = React.useState<number | string | null>(null)
   const stageRef = React.useRef<any>(null)
+  
+  // Helper function to snap coordinates to grid
+  const snapToGridPoint = (x: number, y: number): [number, number] => {
+    if (!snapToGrid) return [x, y]
+    return [
+      Math.round(x / gridSize) * gridSize,
+      Math.round(y / gridSize) * gridSize
+    ]
+  }
+  
+  // Get measurements from store
+  const measurements = useMeasurementStore(state => state.measurements);
+  const currentMeasurement = useMeasurementStore(state => state.currentMeasurement);
+  const removeMeasurement = useMeasurementStore(state => state.removeMeasurement);
+  
+  // Clear polygon selection when entering measurement mode
+  React.useEffect(() => {
+    if (measurementMode) {
+      setSelectedPolygonId(null)
+    }
+  }, [measurementMode])
   
   // Use inverse scale for UI elements to keep them constant size
   const inverseScale = 1 / scale
 
-  // Debug: Log detections when they change
-  React.useEffect(() => {
-    console.log('EditableOverlay detections:', detections.length, detections)
-  }, [detections])
 
   // Keyboard shortcuts
   React.useEffect(() => {
@@ -98,7 +125,9 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
   // --- vertex ops ---
   const onVertexDrag = (d: Detection, vi: number, x: number, y: number) => {
     const pts = toPairs(d.points)
-    pts[vi] = [x, y]
+    // Apply snap-to-grid if enabled
+    const [snappedX, snappedY] = snapToGridPoint(x, y)
+    pts[vi] = [snappedX, snappedY]
     updateDetection(d.id as any, { points: pts })
     
     // Trigger dimension recalculation (will be handled by parent component)
@@ -244,6 +273,9 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
   }
 
   const handlePolygonClick = (e: any, d: Detection) => {
+    // Allow polygon clicks even in measurement mode (just don't add measurement points)
+    // This allows users to select and edit masks while measure tool is active
+    
     const stage = stageRef.current
     const pos = stage?.getPointerPosition()
     if (!pos) { 
@@ -291,6 +323,39 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
     return selectedVertices.filter(sv => sv.detectionId === detectionId).length
   }
 
+  // Handle canvas click for measurements
+  const handleCanvasClick = (e: any) => {
+    // Only handle measurement clicks if clicking on the stage itself (not on a polygon)
+    if (measurementMode && onMeasurementClick && e.target === e.target.getStage()) {
+      const stage = e.target.getStage()
+      if (!stage) return
+      
+      const point = stage.getPointerPosition()
+      if (!point) return
+      
+      onMeasurementClick([point.x, point.y])
+      e.cancelBubble = true
+    }
+    // If clicking on a polygon, let it handle the click (don't cancel bubble)
+  }
+
+  // Handle double-click for completing area measurements
+  const handleCanvasDoubleClick = (e: any) => {
+    if (measurementMode === 'area' && onMeasurementComplete) {
+      onMeasurementComplete()
+      e.cancelBubble = true
+    }
+  }
+
+  // Handle right-click for area categorization
+  const handleCanvasRightClick = (e: any) => {
+    if (measurementMode === 'area' && onMeasurementRightClick) {
+      e.evt.preventDefault()
+      onMeasurementRightClick()
+      e.cancelBubble = true
+    }
+  }
+
   return (
     <>
       {/* Multi-select mode indicator */}
@@ -319,12 +384,18 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
-        onDblClick={handleStageDoubleClick}
+        onClick={handleCanvasClick}
+        onDblClick={measurementMode ? handleCanvasDoubleClick : handleStageDoubleClick}
+        onContextMenu={handleCanvasRightClick}
         scaleX={1}
         scaleY={1}
-        pixelRatio={2}
+        pixelRatio={window.devicePixelRatio || 2}
+        style={{ pointerEvents: 'auto' }}
       >
-        <Layer listening imageSmoothingEnabled={false}>
+        <Layer 
+          listening={true}
+          imageSmoothingEnabled={false}
+        >
           {/* Selection rectangle */}
           <SelectionBox 
             start={selectionStart}
@@ -332,11 +403,18 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
             visible={isSelecting}
           />
 
-        {detections.map((d) => {
+        {detections.map((d, index) => {
+          // Skip rendering if detection is hidden
+          if (hiddenElements.has(String(d.id))) {
+            return null;
+          }
+          
           const pts = toPairs(d.points)
-          if (pts.length < 3) return null
+          if (pts.length < 3) return null;
+          
           const flat = pts.flat()
-          const color = CLASS_COLORS[d.cls?.toLowerCase?.()] ?? "#e91e63"
+          // Use detection's color if available, otherwise use class color mapping
+          const color = (d as any).color || getDetectionColor(d.cls)
           const polygonSelected = isPolygonSelected(d)
           const hasSelectedVertices = getSelectedVerticesCount(d.id) > 0
           const isHovered = hoveredDetectionId === d.id
@@ -361,7 +439,8 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
                   shadowBlur={20 * inverseScale}
                   shadowOpacity={0.8}
                   listening={false}
-                  perfectDrawEnabled={false}
+                  perfectDrawEnabled={true}
+                  strokeScaleEnabled={false}
                 />
               )}
               
@@ -370,14 +449,22 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
                 closed
                 stroke={color}
                 strokeWidth={scaledStrokeWidth}
-                fill={polygonSelected || hasSelectedVertices ? `${color}33` : isHovered ? `${color}40` : `${color}18`}
+                fill={
+                  polygonSelected || hasSelectedVertices 
+                    ? `${color}${Math.round(OPACITY.fill.selected * 255).toString(16).padStart(2, '0')}`
+                    : isHovered 
+                    ? `${color}${Math.round(OPACITY.fill.hover * 255).toString(16).padStart(2, '0')}`
+                    : `${color}${Math.round(OPACITY.fill.normal * 255).toString(16).padStart(2, '0')}`
+                }
                 onClick={(e) => handlePolygonClick(e, d)}
                 onTap={(e) => handlePolygonClick(e, d)}
                 shadowColor={isHovered ? color : undefined}
                 shadowBlur={shadowBlur}
                 shadowOpacity={isHovered ? 0.5 : 0}
                 hitStrokeWidth={10 * inverseScale}
-                perfectDrawEnabled={false}
+                perfectDrawEnabled={true}
+                strokeScaleEnabled={false}
+                listening={true}
               />
 
               {/* Vertices - always visible when polygon is selected or has selected vertices */}
@@ -403,7 +490,9 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
                       onDblClick={(e) => handleVertexDoubleClick(e, d, vi)}
                       onTap={(e) => handleVertexClick(e, d, vi)}
                       hitStrokeWidth={0}
-                      perfectDrawEnabled={false}
+                      perfectDrawEnabled={true}
+                      strokeScaleEnabled={false}
+                      shadowForStrokeEnabled={false}
                     />
                   )
                 })}
@@ -425,6 +514,15 @@ export default function EditableOverlay({ width, height, scale = 1 }: Props) {
           )
         })}
       </Layer>
+      
+      {/* Measurement Layer */}
+      <MeasurementLayer
+        measurements={measurements}
+        currentMeasurement={currentMeasurement}
+        onMeasurementClick={removeMeasurement}
+        scale={scale}
+        hiddenElements={hiddenElements}
+      />
     </Stage>
     </>
   )
