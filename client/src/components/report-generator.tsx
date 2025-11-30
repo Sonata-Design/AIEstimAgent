@@ -121,9 +121,9 @@ export function ReportGeneratorComponent({ project, takeoffs, drawings, analyses
 
   const reportStats = {
     totalItems: takeoffs.length,
-    totalCost: takeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0),
-    verifiedItems: takeoffs.filter(t => t.verified).length,
-    elementTypes: new Set(takeoffs.map(t => t.elementType)).size
+    totalCost: takeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0),
+    verifiedItems: takeoffs.filter(t => t.is_verified).length,
+    elementTypes: new Set(takeoffs.map(t => t.element_type)).size
   };
 
   return (
@@ -150,25 +150,25 @@ export function ReportGeneratorComponent({ project, takeoffs, drawings, analyses
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{reportStats.totalItems}</div>
+                  <div className="text-2xl font-bold text-blue-600">{reportStats.total_items}</div>
                   <div className="text-sm text-slate-600">Total Items</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">${reportStats.totalCost.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-green-600">${reportStats.total_cost.toLocaleString()}</div>
                   <div className="text-sm text-slate-600">Total Cost</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">{reportStats.verifiedItems}</div>
+                  <div className="text-2xl font-bold text-purple-600">{reportStats.is_verifiedItems}</div>
                   <div className="text-sm text-slate-600">Verified</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-orange-600">{reportStats.elementTypes}</div>
+                  <div className="text-2xl font-bold text-orange-600">{reportStats.element_types}</div>
                   <div className="text-sm text-slate-600">Element Types</div>
                 </CardContent>
               </Card>

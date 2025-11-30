@@ -28,8 +28,8 @@ export function CostBreakdownChart({
 
     // Group takeoffs by element type and calculate totals
     const groupedData = takeoffs.reduce((acc, takeoff) => {
-      const type = takeoff.elementType;
-      const cost = takeoff.totalCost || 0;
+      const type = takeoff.element_type;
+      const cost = takeoff.total_cost || 0;
       
       if (!acc[type]) {
         acc[type] = { cost: 0, count: 0 };

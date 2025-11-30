@@ -184,10 +184,10 @@ export default function LLMTakeoffProcessor({ drawing, onAnalysisComplete }: LLM
   };
 
   const groupedTakeoffs = (existingTakeoffs as Takeoff[]).reduce((acc: Record<string, Takeoff[]>, takeoff: Takeoff) => {
-    if (!acc[takeoff.elementType]) {
-      acc[takeoff.elementType] = [];
+    if (!acc[takeoff.element_type]) {
+      acc[takeoff.element_type] = [];
     }
-    acc[takeoff.elementType].push(takeoff);
+    acc[takeoff.element_type].push(takeoff);
     return acc;
   }, {});
 
@@ -306,7 +306,7 @@ export default function LLMTakeoffProcessor({ drawing, onAnalysisComplete }: LLM
                   </CardTitle>
                   <div className="flex items-center space-x-2">
                     <Badge variant="secondary">
-                      AI Detected: {takeoffs.filter((t: Takeoff) => t.detectedByAi).length}
+                      AI Detected: {takeoffs.filter((t: Takeoff) => t.is_detected_by_ai).length}
                     </Badge>
                     <Button variant="outline" size="sm">
                       <Eye className="w-4 h-4 mr-1" />
@@ -321,8 +321,8 @@ export default function LLMTakeoffProcessor({ drawing, onAnalysisComplete }: LLM
                     <div key={takeoff.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <div className="space-y-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-sm">{takeoff.elementName}</span>
-                          {takeoff.detectedByAi && (
+                          <span className="font-medium text-sm">{takeoff.element_name}</span>
+                          {takeoff.is_detected_by_ai && (
                             <Badge variant="outline" className="text-xs">AI</Badge>
                           )}
                         </div>
@@ -334,7 +334,7 @@ export default function LLMTakeoffProcessor({ drawing, onAnalysisComplete }: LLM
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-sm font-medium">
-                          ${takeoff.totalCost?.toLocaleString() || 0}
+                          ${takeoff.total_cost?.toLocaleString() || 0}
                         </span>
                         <Button 
                           variant="ghost" 
@@ -364,25 +364,25 @@ export default function LLMTakeoffProcessor({ drawing, onAnalysisComplete }: LLM
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {(existingTakeoffs as Takeoff[]).filter((t: Takeoff) => t.elementType === 'doors').reduce((sum: number, t: Takeoff) => sum + (t.quantity || 0), 0)}
+                  {(existingTakeoffs as Takeoff[]).filter((t: Takeoff) => t.element_type === 'doors').reduce((sum: number, t: Takeoff) => sum + (t.quantity || 0), 0)}
                 </div>
                 <div className="text-xs text-slate-600">Doors</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-cyan-600">
-                  {(existingTakeoffs as Takeoff[]).filter((t: Takeoff) => t.elementType === 'windows').reduce((sum: number, t: Takeoff) => sum + (t.quantity || 0), 0)}
+                  {(existingTakeoffs as Takeoff[]).filter((t: Takeoff) => t.element_type === 'windows').reduce((sum: number, t: Takeoff) => sum + (t.quantity || 0), 0)}
                 </div>
                 <div className="text-xs text-slate-600">Windows</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-amber-600">
-                  {(existingTakeoffs as Takeoff[]).filter((t: Takeoff) => t.elementType === 'flooring').reduce((sum: number, t: Takeoff) => sum + (t.area || 0), 0).toLocaleString()}
+                  {(existingTakeoffs as Takeoff[]).filter((t: Takeoff) => t.element_type === 'flooring').reduce((sum: number, t: Takeoff) => sum + (t.area || 0), 0).toLocaleString()}
                 </div>
                 <div className="text-xs text-slate-600">Sq Ft Floor</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  ${(existingTakeoffs as Takeoff[]).reduce((sum: number, t: Takeoff) => sum + (t.totalCost || 0), 0).toLocaleString()}
+                  ${(existingTakeoffs as Takeoff[]).reduce((sum: number, t: Takeoff) => sum + (t.total_cost || 0), 0).toLocaleString()}
                 </div>
                 <div className="text-xs text-slate-600">Total Cost</div>
               </div>

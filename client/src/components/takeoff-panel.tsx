@@ -64,47 +64,47 @@ export default function TakeoffPanel({ drawing }: TakeoffPanelProps) {
 
   if (takeoffs && Array.isArray(takeoffs)) {
     (takeoffs as Takeoff[]).forEach((takeoff: Takeoff) => {
-      const cost = takeoff.totalCost || 0;
+      const cost = takeoff.total_cost || 0;
       summary.costs.total += cost;
 
-      switch (takeoff.elementType) {
+      switch (takeoff.element_type) {
         case "doors":
           summary.doors.total += takeoff.quantity || 0;
-          if (takeoff.elementName.includes("36")) {
+          if (takeoff.element_name.includes("36")) {
             summary.doors.interior36 += takeoff.quantity || 0;
-          } else if (takeoff.elementName.includes("32")) {
+          } else if (takeoff.element_name.includes("32")) {
             summary.doors.interior32 += takeoff.quantity || 0;
-          } else if (takeoff.elementName.toLowerCase().includes("entry")) {
+          } else if (takeoff.element_name.toLowerCase().includes("entry")) {
             summary.doors.entry += takeoff.quantity || 0;
           }
           break;
         case "windows":
           summary.windows.total += takeoff.quantity || 0;
-          if (takeoff.elementName.toLowerCase().includes("double hung")) {
+          if (takeoff.element_name.toLowerCase().includes("double hung")) {
             summary.windows.doubleHung += takeoff.quantity || 0;
-          } else if (takeoff.elementName.toLowerCase().includes("casement")) {
+          } else if (takeoff.element_name.toLowerCase().includes("casement")) {
             summary.windows.casement += takeoff.quantity || 0;
-          } else if (takeoff.elementName.toLowerCase().includes("picture")) {
+          } else if (takeoff.element_name.toLowerCase().includes("picture")) {
             summary.windows.picture += takeoff.quantity || 0;
           }
           break;
         case "flooring":
           const area = takeoff.area || 0;
           summary.flooring.total += area;
-          if (takeoff.elementName.toLowerCase().includes("hardwood")) {
+          if (takeoff.element_name.toLowerCase().includes("hardwood")) {
             summary.flooring.hardwood += area;
-          } else if (takeoff.elementName.toLowerCase().includes("tile")) {
+          } else if (takeoff.element_name.toLowerCase().includes("tile")) {
             summary.flooring.tile += area;
-          } else if (takeoff.elementName.toLowerCase().includes("carpet")) {
+          } else if (takeoff.element_name.toLowerCase().includes("carpet")) {
             summary.flooring.carpet += area;
           }
           break;
         case "electrical":
-          if (takeoff.elementName.toLowerCase().includes("outlet")) {
+          if (takeoff.element_name.toLowerCase().includes("outlet")) {
             summary.electrical.outlets += takeoff.quantity || 0;
-          } else if (takeoff.elementName.toLowerCase().includes("light")) {
+          } else if (takeoff.element_name.toLowerCase().includes("light")) {
             summary.electrical.lights += takeoff.quantity || 0;
-          } else if (takeoff.elementName.toLowerCase().includes("switch")) {
+          } else if (takeoff.element_name.toLowerCase().includes("switch")) {
             summary.electrical.switches += takeoff.quantity || 0;
           }
           break;
@@ -440,12 +440,12 @@ export default function TakeoffPanel({ drawing }: TakeoffPanelProps) {
               <Calculator className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-slate-900 mb-2">No Takeoff Data</h3>
               <p className="text-sm text-slate-600 mb-4">
-                {drawing.aiProcessed 
+                {drawing.is_ai_processed 
                   ? "No elements detected in this drawing"
                   : "Upload and process a drawing to see takeoff results"
                 }
               </p>
-              {!drawing.aiProcessed && (
+              {!drawing.is_ai_processed && (
                 <Button size="sm" className="bg-blueprint-600 hover:bg-blueprint-700">
                   Start AI Analysis
                 </Button>

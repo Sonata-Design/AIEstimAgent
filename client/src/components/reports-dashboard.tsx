@@ -33,21 +33,21 @@ export function ReportsDashboard({
   const [selectedChartType, setSelectedChartType] = useState<'pie' | 'doughnut' | 'bar'>('doughnut');
   
   // Calculate key metrics
-  const totalCost = takeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+  const totalCost = takeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0);
   const materialCost = totalCost * 0.6; // Estimated material cost
   const laborCost = totalCost * 0.4; // Estimated labor cost
-  const verifiedItems = takeoffs.filter(t => t.verified).length;
-  const aiDetectedItems = takeoffs.filter(t => t.detectedByAi).length;
-  const manuallyEditedItems = takeoffs.filter(t => t.manuallyEdited).length;
+  const verifiedItems = takeoffs.filter(t => t.is_verified).length;
+  const aiDetectedItems = takeoffs.filter(t => t.is_detected_by_ai).length;
+  const manuallyEditedItems = takeoffs.filter(t => t.is_manually_edited).length;
 
   // Group by element type for analysis
   const elementTypeBreakdown = takeoffs.reduce((acc, takeoff) => {
-    const type = takeoff.elementType;
+    const type = takeoff.element_type;
     if (!acc[type]) {
       acc[type] = { count: 0, cost: 0 };
     }
     acc[type].count += 1;
-    acc[type].cost += takeoff.totalCost || 0;
+    acc[type].cost += takeoff.total_cost || 0;
     return acc;
   }, {} as Record<string, { count: number; cost: number }>);
 

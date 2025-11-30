@@ -128,14 +128,14 @@ export class ReportGenerator {
       
       // Create table data
       const tableData = takeoffs.map(takeoff => [
-        takeoff.elementName,
+        takeoff.element_name,
         takeoff.quantity?.toString() || '0',
         takeoff.unit,
         takeoff.area ? takeoff.area.toFixed(1) : '-',
         takeoff.length ? takeoff.length.toFixed(1) : '-',
-        `$${(takeoff.costPerUnit || 0).toFixed(2)}`,
-        `$${(takeoff.totalCost || 0).toLocaleString()}`,
-        takeoff.verified ? '✓' : '-'
+        `$${(takeoff.cost_per_unit || 0).toFixed(2)}`,
+        `$${(takeoff.total_cost || 0).toLocaleString()}`,
+        takeoff.is_verified ? '✓' : '-'
       ]);
       
       autoTable(this.doc, {
@@ -154,7 +154,7 @@ export class ReportGenerator {
       yPos = (this.doc as any).lastAutoTable.finalY + 15;
       
       // Subtotal for this section
-      const subtotal = takeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+      const subtotal = takeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0);
       this.doc.setFont('helvetica', 'bold');
       this.doc.text(`${elementType} Subtotal: $${subtotal.toLocaleString()}`, this.pageWidth - 80, yPos - 5);
       this.doc.setFont('helvetica', 'normal');
@@ -264,7 +264,7 @@ export class ReportGenerator {
       ['Location', project.location || 'Not specified'],
       ['Client', project.client || 'Not specified'],
       ['Status', project.status],
-      ['Created Date', new Date(project.createdAt!).toLocaleDateString()]
+      ['Created Date', new Date(project.created_at!).toLocaleDateString()]
     ];
     
     autoTable(this.doc, {
@@ -289,13 +289,13 @@ export class ReportGenerator {
     // Group costs by element type
     const groupedCosts = this.groupTakeoffsByType(takeoffs);
     const summaryData = Object.entries(groupedCosts).map(([type, items]) => {
-      const total = items.reduce((sum, item) => sum + (item.totalCost || 0), 0);
+      const total = items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
       const itemCount = items.length;
       return [type.charAt(0).toUpperCase() + type.slice(1), itemCount.toString(), `$${total.toLocaleString()}`];
     });
     
     // Add grand total
-    const grandTotal = takeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+    const grandTotal = takeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0);
     summaryData.push(['TOTAL', takeoffs.length.toString(), `$${grandTotal.toLocaleString()}`]);
     
     yPos += 15;
@@ -322,9 +322,9 @@ export class ReportGenerator {
     yPos += 15;
     
     const totalItems = takeoffs.length;
-    const verifiedItems = takeoffs.filter(t => t.verified).length;
-    const aiDetectedItems = takeoffs.filter(t => t.detectedByAi).length;
-    const manuallyEditedItems = takeoffs.filter(t => t.manuallyEdited).length;
+    const verifiedItems = takeoffs.filter(t => t.is_verified).length;
+    const aiDetectedItems = takeoffs.filter(t => t.is_detected_by_ai).length;
+    const manuallyEditedItems = takeoffs.filter(t => t.is_manually_edited).length;
     
     const metricsData = [
       ['Total Items', totalItems.toString()],
@@ -420,7 +420,7 @@ export class ReportGenerator {
 
   private groupTakeoffsByType(takeoffs: Takeoff[]): Record<string, Takeoff[]> {
     return takeoffs.reduce((groups, takeoff) => {
-      const type = takeoff.elementType;
+      const type = takeoff.element_type;
       if (!groups[type]) {
         groups[type] = [];
       }
@@ -430,10 +430,10 @@ export class ReportGenerator {
   }
 
   private calculateTotalCost(takeoffs: Takeoff[]): number {
-    return takeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+    return takeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0);
   }
 
   private calculateTypeCost(takeoffs: Takeoff[]): number {
-    return takeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+    return takeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0);
   }
 }

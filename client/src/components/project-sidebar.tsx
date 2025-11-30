@@ -132,9 +132,9 @@ export default function ProjectSidebar({
         ) : (
           <div className="space-y-3">
             {drawings.map((drawing) => {
-              const Icon = getDrawingIcon(drawing.fileType);
+              const Icon = getDrawingIcon(drawing.file_type);
               const isSelected = selectedDrawing?.id === drawing.id;
-              const isProcessingComplete = drawing.status === "complete" && drawing.aiProcessed;
+              const isProcessingComplete = drawing.status === "complete" && drawing.is_ai_processed;
               
               return (
                 <div
@@ -152,7 +152,7 @@ export default function ProjectSidebar({
                       <div>
                         <p className="text-sm font-medium text-slate-900">{drawing.name}</p>
                         <p className="text-xs text-slate-500">
-                          {getStatusText(drawing.status, drawing.aiProcessed || false)}
+                          {getStatusText(drawing.status, drawing.is_ai_processed || false)}
                         </p>
                       </div>
                     </div>

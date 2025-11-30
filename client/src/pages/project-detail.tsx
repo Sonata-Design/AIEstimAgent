@@ -189,7 +189,7 @@ export default function ProjectDetail() {
     setIsEditingTakeoff(takeoff.id);
     setEditValues({
       quantity: takeoff.quantity || 0,
-      costPerUnit: takeoff.costPerUnit || 0,
+      costPerUnit: takeoff.cost_per_unit || 0,
       notes: takeoff.notes || "",
       area: takeoff.area,
       length: takeoff.length
@@ -197,12 +197,12 @@ export default function ProjectDetail() {
   };
 
   const handleSaveTakeoff = (takeoffId: string) => {
-    const totalCost = editValues.quantity * editValues.costPerUnit;
+    const totalCost = editValues.quantity * editValues.cost_per_unit;
     updateTakeoffMutation.mutate({
       id: takeoffId,
       data: {
         quantity: editValues.quantity,
-        costPerUnit: editValues.costPerUnit,
+        costPerUnit: editValues.cost_per_unit,
         area: editValues.area,
         length: editValues.length,
         totalCost,
@@ -224,8 +224,8 @@ export default function ProjectDetail() {
     }
 
     const totalItems = takeoffs.length;
-    const totalCost = takeoffs.reduce((sum: number, takeoff: Takeoff) => sum + (takeoff.totalCost || 0), 0);
-    const elementTypes = Array.from(new Set(takeoffs.map((t: Takeoff) => t.elementType)));
+    const totalCost = takeoffs.reduce((sum: number, takeoff: Takeoff) => sum + (takeoff.total_cost || 0), 0);
+    const elementTypes = Array.from(new Set(takeoffs.map((t: Takeoff) => t.element_type)));
 
     saveAnalysisMutation.mutate({
       name: analysisName,
@@ -347,14 +347,14 @@ export default function ProjectDetail() {
     
     const rows = takeoffs.map((takeoff: Takeoff) => {
       // Estimate material/labor split (typically 60/40 for construction)
-      const totalCostPerUnit = takeoff.costPerUnit || 0;
+      const totalCostPerUnit = takeoff.cost_per_unit || 0;
       const materialCostPerUnit = totalCostPerUnit * 0.6;
       const laborCostPerUnit = totalCostPerUnit * 0.4;
       const quantity = takeoff.quantity || 0;
       
       return [
-        takeoff.elementType,
-        takeoff.elementName,
+        takeoff.element_type,
+        takeoff.element_name,
         quantity.toString(),
         takeoff.unit,
         takeoff.area?.toString() || "",
@@ -364,11 +364,11 @@ export default function ProjectDetail() {
         totalCostPerUnit.toString(),
         (materialCostPerUnit * quantity).toFixed(2),
         (laborCostPerUnit * quantity).toFixed(2),
-        takeoff.totalCost?.toString() || "0",
-        takeoff.detectedByAi ? "Yes" : "No",
-        takeoff.manuallyEdited ? "Yes" : "No",
-        takeoff.originalQuantity?.toString() || "",
-        takeoff.verified ? "Yes" : "No",
+        takeoff.total_cost?.toString() || "0",
+        takeoff.is_detected_by_ai ? "Yes" : "No",
+        takeoff.is_manually_edited ? "Yes" : "No",
+        takeoff.original_quantity?.toString() || "",
+        takeoff.is_verified ? "Yes" : "No",
         takeoff.notes || ""
       ];
     });
@@ -420,9 +420,9 @@ export default function ProjectDetail() {
     );
   }
 
-  const totalCost = takeoffs.reduce((sum: number, takeoff: Takeoff) => sum + (takeoff.totalCost || 0), 0);
+  const totalCost = takeoffs.reduce((sum: number, takeoff: Takeoff) => sum + (takeoff.total_cost || 0), 0);
   const totalItems = takeoffs.length;
-  const verifiedItems = takeoffs.filter((t: Takeoff) => t.verified).length;
+  const verifiedItems = takeoffs.filter((t: Takeoff) => t.is_verified).length;
 
   return (
     <Layout>
@@ -519,7 +519,7 @@ export default function ProjectDetail() {
           </div>
           <div className="flex items-center space-x-2 text-sm text-slate-600">
             <Calendar className="w-4 h-4" />
-            <span>Created {project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'Unknown'}</span>
+            <span>Created {project?.created_at ? new Date(project.created_at).toLocaleDateString() : 'Unknown'}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Badge 
@@ -714,8 +714,8 @@ export default function ProjectDetail() {
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="font-medium text-slate-900">{takeoff.elementName}</h4>
-                              <p className="text-sm text-slate-600">{takeoff.elementType}</p>
+                              <h4 className="font-medium text-slate-900">{takeoff.element_name}</h4>
+                              <p className="text-sm text-slate-600">{takeoff.element_type}</p>
                             </div>
                             <div className="flex items-center space-x-2">
                               <Button
@@ -742,8 +742,8 @@ export default function ProjectDetail() {
                             <div>
                               <Label htmlFor={`quantity-${takeoff.id}`}>
                                 Quantity
-                                {takeoff.originalQuantity && takeoff.originalQuantity !== editValues.quantity && (
-                                  <span className="text-xs text-slate-500 ml-1">(AI: {takeoff.originalQuantity})</span>
+                                {takeoff.original_quantity && takeoff.original_quantity !== editValues.quantity && (
+                                  <span className="text-xs text-slate-500 ml-1">(AI: {takeoff.original_quantity})</span>
                                 )}
                               </Label>
                               <Input
@@ -754,7 +754,7 @@ export default function ProjectDetail() {
                                   ...editValues,
                                   quantity: parseInt(e.target.value) || 0
                                 })}
-                                className={takeoff.originalQuantity && takeoff.originalQuantity !== editValues.quantity ? 
+                                className={takeoff.original_quantity && takeoff.original_quantity !== editValues.quantity ? 
                                   "border-yellow-300 bg-yellow-50" : ""}
                               />
                             </div>
@@ -763,8 +763,8 @@ export default function ProjectDetail() {
                               <div>
                                 <Label htmlFor={`area-${takeoff.id}`}>
                                   Area (sq ft)
-                                  {takeoff.originalArea && takeoff.originalArea !== editValues.area && (
-                                    <span className="text-xs text-slate-500 ml-1">(AI: {takeoff.originalArea})</span>
+                                  {takeoff.original_area && takeoff.original_area !== editValues.area && (
+                                    <span className="text-xs text-slate-500 ml-1">(AI: {takeoff.original_area})</span>
                                   )}
                                 </Label>
                                 <Input
@@ -776,7 +776,7 @@ export default function ProjectDetail() {
                                     ...editValues,
                                     area: parseFloat(e.target.value) || null
                                   })}
-                                  className={takeoff.originalArea && takeoff.originalArea !== editValues.area ? 
+                                  className={takeoff.original_area && takeoff.original_area !== editValues.area ? 
                                     "border-yellow-300 bg-yellow-50" : ""}
                                 />
                               </div>
@@ -786,8 +786,8 @@ export default function ProjectDetail() {
                               <div>
                                 <Label htmlFor={`length-${takeoff.id}`}>
                                   Length (ft)
-                                  {takeoff.originalLength && takeoff.originalLength !== editValues.length && (
-                                    <span className="text-xs text-slate-500 ml-1">(AI: {takeoff.originalLength})</span>
+                                  {takeoff.original_length && takeoff.original_length !== editValues.length && (
+                                    <span className="text-xs text-slate-500 ml-1">(AI: {takeoff.original_length})</span>
                                   )}
                                 </Label>
                                 <Input
@@ -799,7 +799,7 @@ export default function ProjectDetail() {
                                     ...editValues,
                                     length: parseFloat(e.target.value) || null
                                   })}
-                                  className={takeoff.originalLength && takeoff.originalLength !== editValues.length ? 
+                                  className={takeoff.original_length && takeoff.original_length !== editValues.length ? 
                                     "border-yellow-300 bg-yellow-50" : ""}
                                 />
                               </div>
@@ -808,20 +808,20 @@ export default function ProjectDetail() {
                             <div>
                               <Label htmlFor={`cost-${takeoff.id}`}>
                                 Cost Per Unit ($)
-                                {takeoff.originalCostPerUnit && takeoff.originalCostPerUnit !== editValues.costPerUnit && (
-                                  <span className="text-xs text-slate-500 ml-1">(Original: ${takeoff.originalCostPerUnit})</span>
+                                {takeoff.original_cost_per_unit && takeoff.original_cost_per_unit !== editValues.cost_per_unit && (
+                                  <span className="text-xs text-slate-500 ml-1">(Original: ${takeoff.original_cost_per_unit})</span>
                                 )}
                               </Label>
                               <Input
                                 id={`cost-${takeoff.id}`}
                                 type="number"
                                 step="0.01"
-                                value={editValues.costPerUnit}
+                                value={editValues.cost_per_unit}
                                 onChange={(e) => setEditValues({
                                   ...editValues,
                                   costPerUnit: parseFloat(e.target.value) || 0
                                 })}
-                                className={takeoff.originalCostPerUnit && takeoff.originalCostPerUnit !== editValues.costPerUnit ? 
+                                className={takeoff.original_cost_per_unit && takeoff.original_cost_per_unit !== editValues.cost_per_unit ? 
                                   "border-yellow-300 bg-yellow-50" : ""}
                               />
                             </div>
@@ -836,7 +836,7 @@ export default function ProjectDetail() {
                             <div>
                               <Label className="text-xs text-slate-600">Calculated Total Cost</Label>
                               <p className="font-medium text-lg text-slate-900">
-                                ${(editValues.quantity * editValues.costPerUnit).toLocaleString()}
+                                ${(editValues.quantity * editValues.cost_per_unit).toLocaleString()}
                               </p>
                             </div>
                             <div className="flex items-end">
@@ -844,12 +844,12 @@ export default function ProjectDetail() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
-                                  if (takeoff.originalQuantity) setEditValues({...editValues, quantity: takeoff.originalQuantity});
-                                  if (takeoff.originalArea) setEditValues({...editValues, area: takeoff.originalArea});
-                                  if (takeoff.originalLength) setEditValues({...editValues, length: takeoff.originalLength});
-                                  if (takeoff.originalCostPerUnit) setEditValues({...editValues, costPerUnit: takeoff.originalCostPerUnit});
+                                  if (takeoff.original_quantity) setEditValues({...editValues, quantity: takeoff.original_quantity});
+                                  if (takeoff.original_area) setEditValues({...editValues, area: takeoff.original_area});
+                                  if (takeoff.original_length) setEditValues({...editValues, length: takeoff.original_length});
+                                  if (takeoff.original_cost_per_unit) setEditValues({...editValues, costPerUnit: takeoff.original_cost_per_unit});
                                 }}
-                                disabled={!takeoff.originalQuantity && !takeoff.originalCostPerUnit}
+                                disabled={!takeoff.original_quantity && !takeoff.original_cost_per_unit}
                               >
                                 <RotateCcw className="w-4 h-4 mr-1" />
                                 Reset to AI
@@ -885,21 +885,21 @@ export default function ProjectDetail() {
                           )}
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-slate-900">{takeoff.elementName}</h4>
+                              <h4 className="font-medium text-slate-900">{takeoff.element_name}</h4>
                               <div className="flex items-center space-x-2">
-                                {takeoff.verified && (
+                                {takeoff.is_verified && (
                                   <Badge variant="secondary" className="bg-green-100 text-green-700">
                                     <Check className="w-3 h-3 mr-1" />
                                     Verified
                                   </Badge>
                                 )}
-                                {takeoff.manuallyEdited && (
+                                {takeoff.is_manually_edited && (
                                   <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
                                     <Edit className="w-3 h-3 mr-1" />
                                     Modified
                                   </Badge>
                                 )}
-                                {takeoff.detectedByAi && !takeoff.manuallyEdited && (
+                                {takeoff.is_detected_by_ai && !takeoff.is_manually_edited && (
                                   <Badge variant="outline" className="text-blue-600 border-blue-200">
                                     AI Detected
                                   </Badge>
@@ -910,13 +910,13 @@ export default function ProjectDetail() {
                             <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
                               <div>
                                 <p className="text-slate-500">Type</p>
-                                <p className="font-medium">{takeoff.elementType}</p>
+                                <p className="font-medium">{takeoff.element_type}</p>
                               </div>
                               <div>
                                 <p className="text-slate-500">
                                   Quantity
-                                  {takeoff.originalQuantity && takeoff.originalQuantity !== takeoff.quantity && (
-                                    <span className="text-xs text-yellow-600 ml-1">(was {takeoff.originalQuantity})</span>
+                                  {takeoff.original_quantity && takeoff.original_quantity !== takeoff.quantity && (
+                                    <span className="text-xs text-yellow-600 ml-1">(was {takeoff.original_quantity})</span>
                                   )}
                                 </p>
                                 <p className="font-medium">{takeoff.quantity} {takeoff.unit}</p>
@@ -925,8 +925,8 @@ export default function ProjectDetail() {
                                 <div>
                                   <p className="text-slate-500">
                                     Area
-                                    {takeoff.originalArea && takeoff.originalArea !== takeoff.area && (
-                                      <span className="text-xs text-yellow-600 ml-1">(was {takeoff.originalArea})</span>
+                                    {takeoff.original_area && takeoff.original_area !== takeoff.area && (
+                                      <span className="text-xs text-yellow-600 ml-1">(was {takeoff.original_area})</span>
                                     )}
                                   </p>
                                   <p className="font-medium">{takeoff.area} sq ft</p>
@@ -935,15 +935,15 @@ export default function ProjectDetail() {
                               <div>
                                 <p className="text-slate-500">
                                   Cost/Unit
-                                  {takeoff.originalCostPerUnit && takeoff.originalCostPerUnit !== takeoff.costPerUnit && (
-                                    <span className="text-xs text-yellow-600 ml-1">(was ${takeoff.originalCostPerUnit})</span>
+                                  {takeoff.original_cost_per_unit && takeoff.original_cost_per_unit !== takeoff.cost_per_unit && (
+                                    <span className="text-xs text-yellow-600 ml-1">(was ${takeoff.original_cost_per_unit})</span>
                                   )}
                                 </p>
-                                <p className="font-medium">${takeoff.costPerUnit?.toLocaleString() || "0"}</p>
+                                <p className="font-medium">${takeoff.cost_per_unit?.toLocaleString() || "0"}</p>
                               </div>
                               <div>
                                 <p className="text-slate-500">Total Cost</p>
-                                <p className="font-medium text-slate-900">${takeoff.totalCost?.toLocaleString() || "0"}</p>
+                                <p className="font-medium text-slate-900">${takeoff.total_cost?.toLocaleString() || "0"}</p>
                               </div>
                               <div className="flex items-center justify-end space-x-2">
                                 <div className="flex items-center space-x-1">
@@ -957,7 +957,7 @@ export default function ProjectDetail() {
                                           id: takeoff.id,
                                           data: { 
                                             quantity: newQuantity,
-                                            totalCost: newQuantity * (takeoff.costPerUnit || 0),
+                                            totalCost: newQuantity * (takeoff.cost_per_unit || 0),
                                             manuallyEdited: true
                                           }
                                         });
@@ -977,7 +977,7 @@ export default function ProjectDetail() {
                                         id: takeoff.id,
                                         data: { 
                                           quantity: newQuantity,
-                                          totalCost: newQuantity * (takeoff.costPerUnit || 0),
+                                          totalCost: newQuantity * (takeoff.cost_per_unit || 0),
                                           manuallyEdited: true
                                         }
                                       });
@@ -1068,19 +1068,19 @@ export default function ProjectDetail() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <p className="text-slate-500">Items</p>
-                              <p className="font-medium">{analysis.totalItems}</p>
+                              <p className="font-medium">{analysis.total_items}</p>
                             </div>
                             <div>
                               <p className="text-slate-500">Total Cost</p>
-                              <p className="font-medium">${analysis.totalCost?.toLocaleString() || "0"}</p>
+                              <p className="font-medium">${analysis.total_cost?.toLocaleString() || "0"}</p>
                             </div>
                             <div>
                               <p className="text-slate-500">Elements</p>
-                              <p className="font-medium">{Array.isArray(analysis.elementTypes) ? analysis.elementTypes.length : 0} types</p>
+                              <p className="font-medium">{Array.isArray(analysis.element_types) ? analysis.element_types.length : 0} types</p>
                             </div>
                             <div>
                               <p className="text-slate-500">Created</p>
-                              <p className="font-medium">{analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : 'Unknown'}</p>
+                              <p className="font-medium">{analysis.created_at ? new Date(analysis.created_at).toLocaleDateString() : 'Unknown'}</p>
                             </div>
                           </div>
                         </div>
@@ -1120,7 +1120,7 @@ export default function ProjectDetail() {
                       <CardContent className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-500">Type:</span>
-                          <span className="font-medium">{drawing.fileType}</span>
+                          <span className="font-medium">{drawing.file_type}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-500">Status:</span>
@@ -1141,12 +1141,12 @@ export default function ProjectDetail() {
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-500">AI Processed:</span>
-                          <Badge variant={drawing.aiProcessed ? "default" : "outline"}>
-                            {drawing.aiProcessed ? "Yes" : "No"}
+                          <Badge variant={drawing.is_ai_processed ? "default" : "outline"}>
+                            {drawing.is_ai_processed ? "Yes" : "No"}
                           </Badge>
                         </div>
                         <div className="text-xs text-slate-500">
-                          Uploaded {drawing.uploadedAt ? new Date(drawing.uploadedAt).toLocaleDateString() : 'Unknown'}
+                          Uploaded {drawing.uploaded_at ? new Date(drawing.uploaded_at).toLocaleDateString() : 'Unknown'}
                         </div>
                       </CardContent>
                     </Card>
