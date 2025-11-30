@@ -40,6 +40,8 @@ const diskUpload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log('[ROUTES] Starting route registration...');
+  
   // Essential middleware
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -478,6 +480,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  console.log('[ROUTES] All routes registered successfully!');
+  console.log('[ROUTES] Total routes:', app._router.stack.filter((r: any) => r.route).length);
+  
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -12,17 +12,30 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
-  // Create express app and register routes
-  const app = express();
-  const server = await registerRoutes(app);
+  try {
+    console.log('[SERVER] Starting server initialization...');
+    
+    // Create express app and register routes
+    const app = express();
+    console.log('[SERVER] Express app created');
+    
+    const server = await registerRoutes(app);
+    console.log('[SERVER] Routes registered');
 
-  // ✅ Use Render's dynamic port or fallback to 5001 locally (to avoid conflict with frontend)
-  const PORT = parseInt(process.env.PORT || "5001", 10);
+    // ✅ Use Render's dynamic port or fallback to 5001 locally (to avoid conflict with frontend)
+    const PORT = parseInt(process.env.PORT || "5001", 10);
 
-  // ✅ Bind to 0.0.0.0 (so Render can expose it)
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 API Server running on http://0.0.0.0:${PORT}`);
-  });
+    // ✅ Bind to 0.0.0.0 (so Render can expose it)
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 API Server running on http://0.0.0.0:${PORT}`);
+    });
+  } catch (error) {
+    console.error('[SERVER] Failed to start server:', error);
+    throw error;
+  }
 }
 
-startServer().catch(console.error);
+startServer().catch((error) => {
+  console.error('[SERVER] Fatal error:', error);
+  process.exit(1);
+});
