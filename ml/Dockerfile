@@ -16,7 +16,7 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code (including pdf_processor for PDF handling)
 COPY app.py pdf_processor.py ./
 
 # Copy custom model directory (if exists)
