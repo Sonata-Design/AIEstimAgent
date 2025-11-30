@@ -1,8 +1,15 @@
 steps:
+  # Build the Docker image with cache busting
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/estimagent/api-v2', '-f', 'Dockerfile.api', '.']
+    args: ['build', '--no-cache', '-t', 'gcr.io/estimagent/api-v2', '-t', 'gcr.io/estimagent/api-v2:$BUILD_ID', '-f', 'Dockerfile.api', '.']
+  
+  # Push both tags
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/estimagent/api-v2']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/estimagent/api-v2:$BUILD_ID']
 
 images:
   - 'gcr.io/estimagent/api-v2'
+  - 'gcr.io/estimagent/api-v2:$BUILD_ID'
