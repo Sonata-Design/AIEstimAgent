@@ -48,7 +48,6 @@ import {
   Calendar,
   MapPin,
   FileImage,
-  Activity,
   Edit,
   Trash2,
   MoreVertical,
@@ -58,7 +57,6 @@ import {
   RotateCcw,
   CheckSquare,
   Square,
-  Copy,
   Eye,
   Calculator,
   FileText,
@@ -69,8 +67,20 @@ import {
 import type { Project, SavedAnalysis, Takeoff, Drawing } from "@shared/schema";
 
 export default function ProjectDetail() {
-  const [match, params] = useRoute("/projects/:id");
-  const projectId = params?.id;
+  const [match, params] = useRoute<{ id: string }>("/projects/:id");
+  
+  // Handle null params case - redirect if route doesn't match
+  if (!match || !params) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-full">
+          <p className="text-muted-foreground">Project not found</p>
+        </div>
+      </Layout>
+    );
+  }
+  
+  const projectId = params.id;
   const [, setLocation] = useLocation();
   const [isEditingTakeoff, setIsEditingTakeoff] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ 
@@ -300,12 +310,6 @@ export default function ProjectDetail() {
   };
 
   const batchApplyPricing = (costPerUnit: number) => {
-    const updates: any = { 
-      costPerUnit,
-      manuallyEdited: true
-    };
-    
-    // Calculate totalCost for each takeoff individually would require individual updates
     // For now, we'll use individual mutations to handle quantity-specific calculations
     selectedTakeoffs.forEach(takeoffId => {
       const takeoff = takeoffs.find(t => t.id === takeoffId);
@@ -740,8 +744,6 @@ export default function ProjectDetail() {
                             <div>
                               <Label htmlFor={`quantity-${takeoff.id}`}>
                                 Quantity
-                                )</span>
-                                )}
                               </Label>
                               <Input
                                 id={`quantity-${takeoff.id}`}
@@ -751,7 +753,7 @@ export default function ProjectDetail() {
                                   ...editValues,
                                   quantity: parseInt(e.target.value) || 0
                                 })}
-                                className=
+                                className=""
                               />
                             </div>
                             
@@ -759,8 +761,6 @@ export default function ProjectDetail() {
                               <div>
                                 <Label htmlFor={`area-${takeoff.id}`}>
                                   Area (sq ft)
-                                  )</span>
-                                  )}
                                 </Label>
                                 <Input
                                   id={`area-${takeoff.id}`}
@@ -771,7 +771,7 @@ export default function ProjectDetail() {
                                     ...editValues,
                                     area: parseFloat(e.target.value) || null
                                   })}
-                                  className=
+                                  className=""
                                 />
                               </div>
                             )}
@@ -780,8 +780,6 @@ export default function ProjectDetail() {
                               <div>
                                 <Label htmlFor={`length-${takeoff.id}`}>
                                   Length (ft)
-                                  )</span>
-                                  )}
                                 </Label>
                                 <Input
                                   id={`length-${takeoff.id}`}
@@ -792,7 +790,7 @@ export default function ProjectDetail() {
                                     ...editValues,
                                     length: parseFloat(e.target.value) || null
                                   })}
-                                  className=
+                                  className=""
                                 />
                               </div>
                             )}
@@ -814,7 +812,7 @@ export default function ProjectDetail() {
                               />
                             </div>
                           </div>
-
+                          
                           {/* Calculated Values */}
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 bg-slate-50 rounded-lg">
                             <div>
@@ -827,22 +825,7 @@ export default function ProjectDetail() {
                                 ${(editValues.quantity * editValues.costPerUnit).toLocaleString()}
                               </p>
                             </div>
-                            <div className="flex items-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  if (takeoff.original_quantity) setEditValues({...editValues, quantity: takeoff.original_quantity});
-                                  if (takeoff.original_area) setEditValues({...editValues, area: takeoff.original_area});
-                                  if (takeoff.original_length) setEditValues({...editValues, length: takeoff.original_length});
-                                  if (takeoff.original_cost_per_unit) setEditValues({...editValues, costPerUnit: takeoff.original_cost_per_unit});
-                                }}
-                                disabled={!!takeoff.original_cost_per_unit}
-                              >
-                                <RotateCcw className="w-4 h-4 mr-1" />
-                                Reset to AI
-                              </Button>
-                            </div>
+                            {/* Reset button removed - original_* fields not in schema */}
                           </div>
                           
                           <div>
@@ -901,29 +884,17 @@ export default function ProjectDetail() {
                                 <p className="font-medium">{takeoff.element_type}</p>
                               </div>
                               <div>
-                                <p className="text-slate-500">
-                                  Quantity
-                                  )</span>
-                                  )}
-                                </p>
+                                <p className="text-slate-500">Quantity</p>
                                 <p className="font-medium">{takeoff.quantity} {takeoff.unit}</p>
                               </div>
                               {takeoff.area && (
                                 <div>
-                                  <p className="text-slate-500">
-                                    Area
-                                    )</span>
-                                    )}
-                                  </p>
+                                  <p className="text-slate-500">Area</p>
                                   <p className="font-medium">{takeoff.area} sq ft</p>
                                 </div>
                               )}
                               <div>
-                                <p className="text-slate-500">
-                                  Cost/Unit
-                                  )</span>
-                                  )}
-                                </p>
+                                <p className="text-slate-500">Cost/Unit</p>
                                 <p className="font-medium">${takeoff.cost_per_unit?.toLocaleString() || "0"}</p>
                               </div>
                               <div>
