@@ -147,6 +147,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // --- ROOT ENDPOINT ---
+  app.get("/", (_req, res) => {
+    res.json({ 
+      service: "EstimAgent API",
+      version: "1.0.0",
+      status: "running",
+      endpoints: [
+        "/health",
+        "/api/health",
+        "/api/test",
+        "/api/projects",
+        "/api/upload",
+        "/api/upload-pdf",
+        "/api/analyze"
+      ]
+    });
+  });
+
+  // --- HEALTH CHECK ENDPOINTS ---
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", service: "estimagent-api" });
+  });
+
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", service: "estimagent-api" });
+  });
+
   // --- TEST ENDPOINT ---
   app.get("/api/test", (_req, res) => {
     console.log('[API] Test endpoint hit!');
