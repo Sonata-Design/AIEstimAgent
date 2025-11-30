@@ -133,18 +133,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/upload", diskUpload.single("file"), async (req: MulterRequest, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    // Use full URL for production, relative for development
+    // Always use absolute URL
     const baseUrl = process.env.NODE_ENV === 'production' 
       ? (process.env.API_BASE_URL || 'https://aiestimagent-api.onrender.com')
-      : '';
+      : 'http://localhost:5001';
     const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
     
     return res.json({
-      fileUrl,
+      file_url: fileUrl,
       filename: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
     });
+  });
+
+  // --- TEST ENDPOINT ---
+  app.get("/api/test", (_req, res) => {
+    console.log('[API] Test endpoint hit!');
+    res.json({ message: "Backend is running!", timestamp: new Date().toISOString() });
+  });
+
+  // --- PDF UPLOAD ENDPOINT (Proxy to ML Service) ---
+  app.post("/api/upload-pdf", memoryUpload.single("file"), async (req: MulterRequest, res) => {
+    console.log('[API] /api/upload-pdf endpoint hit!');
+    try {
+      if (!req.file) {
+        console.log('[PDF Upload] No file in request');
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      console.log('[PDF Upload] Received PDF upload request');
+      console.log('[PDF Upload] File:', req.file.originalname, req.file.size, 'bytes');
+
+      // Get ML service URL from environment
+      const mlApiUrl = process.env.ML_API_URL || process.env.VITE_ML_URL || 'http://localhost:8001';
+      console.log('[PDF Upload] Forwarding to ML service:', mlApiUrl);
+
+      // Create form data to send to ML service
+      const formData = new FormData();
+      formData.append('file', req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      });
+
+      // Forward request to ML service
+      const response = await axios.post(`${mlApiUrl}/upload-pdf`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      });
+
+      console.log('[PDF Upload] ML service response:', response.status);
+      
+      // Return ML service response to frontend
+      res.json(response.data);
+    } catch (error: any) {
+      console.error('[PDF Upload] Error:', error.message);
+      if (error.response) {
+        console.error('[PDF Upload] ML service error:', error.response.data);
+        return res.status(error.response.status).json(error.response.data);
+      }
+      res.status(500).json({ 
+        success: false,
+        error: 'Failed to process PDF',
+        detail: error.message 
+      });
+    }
   });
 
   // --- PROJECTS ROUTES ---
@@ -206,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:projectId/drawings", async (req, res) => {
     try {
-      const data = insertDrawingSchema.parse({ ...req.body, projectId: req.params.projectId });
+      const data = insertDrawingSchema.parse({ ...req.body, project_id: req.params.projectId });
       const drawing = await storage.createDrawing(data);
       res.status(201).json(drawing);
     } catch (err) {
@@ -230,15 +286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the drawing record with file information
       const baseUrl = process.env.NODE_ENV === 'production' 
         ? (process.env.API_BASE_URL || 'https://aiestimagent-api.onrender.com')
-        : '';
+        : 'http://localhost:5001'; // Use absolute URL in development mode
       const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
       
       const drawingData = {
-        projectId: req.params.projectId,
+        project_id: req.params.projectId,
         name,
         filename: req.file.originalname,
-        fileUrl,
-        fileType: req.file.mimetype,
+        file_url: fileUrl,
+        file_type: req.file.mimetype,
         scale: scale || "1/4\" = 1'",
         status: "pending"
       };
@@ -300,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/drawings/:drawingId/takeoffs", async (req, res) => {
     try {
-      const data = { ...req.body, drawingId: req.params.drawingId };
+      const data = { ...req.body, drawing_id: req.params.drawingId };
       const takeoff = await storage.createTakeoff(data);
       res.status(201).json(takeoff);
     } catch (err) {
@@ -344,30 +400,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const detectionsArray = detections as any[];
         for (const detection of detectionsArray) {
           const takeoffData: any = {
-            drawingId,
-            elementType: categoryType,
-            elementName: detection.class || 'Unknown',
-            itemType: detection.class || 'Unknown',
+            drawing_id: drawingId,
+            element_type: categoryType,
+            element_name: detection.class || 'Unknown',
+            item_type: detection.class || 'Unknown',
             quantity: 1,
-            originalQuantity: 1,
             coordinates: detection.bbox || detection.points || detection.mask || null,
-            detectedByAi: true,
-            verified: false
+            is_detected_by_ai: true,
+            is_verified: false
           };
 
           // Set unit and measurements based on category type
           if (categoryType === 'rooms' || categoryType === 'flooring') {
             takeoffData.unit = 'sq ft';
             takeoffData.area = detection.display?.area_sqft || 0;
-            takeoffData.originalArea = detection.display?.area_sqft || 0;
             takeoffData.length = detection.display?.perimeter_ft || 0; // Store perimeter in length field
-            takeoffData.originalLength = detection.display?.perimeter_ft || 0;
             // Normalize the element type to 'rooms' for consistency
-            takeoffData.elementType = 'rooms';
+            takeoffData.element_type = 'rooms';
           } else if (categoryType === 'walls') {
             takeoffData.unit = 'ft';
             takeoffData.length = detection.display?.inner_perimeter || detection.display?.outer_perimeter || 0;
-            takeoffData.originalLength = takeoffData.length;
           } else if (categoryType === 'openings') {
             takeoffData.unit = 'count';
             takeoffData.width = detection.display?.width || 0;
@@ -384,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdTakeoffs = await storage.createTakeoffsBatch(takeoffsToCreate);
 
       // Update drawing status to complete
-      await storage.updateDrawing(drawingId, { status: 'complete', aiProcessed: true });
+      await storage.updateDrawing(drawingId, { status: 'complete', is_ai_processed: true });
 
       res.status(201).json({ 
         message: "Analysis results processed", 

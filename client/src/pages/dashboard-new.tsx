@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import Layout from "@/components/layout";
-import DrawingViewer from "@/components/drawing-viewer";
-import InteractiveFloorPlan from "@/components/interactive-floor-plan";
+import FileUploadDialog from "@/components/file-upload-dialog";
+import { PDFGallerySidebar } from "@/components/pdf-gallery-sidebar";
+import UnifiedDocumentViewer from "@/components/unified-document-viewer";
 import VerticalTakeoffSelector from "@/components/vertical-takeoff-selector";
 import OrganizedTakeoffPanel from "@/components/organized-takeoff-panel";
 import { CollapsibleTakeoffSelector } from "@/components/collapsible-takeoff-selector";
@@ -17,6 +18,8 @@ import CalibrationTool from "@/components/calibration-tool";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
+import { useDocument } from "@/hooks/useDocument";
+import { useDocumentUpload } from "@/hooks/useDocumentUpload";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { createApiUrl, createMlUrl } from "@/config/api";
 import { Download, Ruler, Square, Hash, MessageSquare, PanelLeft, PanelRight, Hand, FileText, ChevronDown, Keyboard, Sparkles } from "lucide-react";
@@ -58,7 +61,11 @@ export default function Dashboard() {
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [pdfPageData, setPdfPageData] = useState<any>(null);
+  const [pdfData, setPdfData] = useState<any>(null);
+  const [selectedPdfPageNumber, setSelectedPdfPageNumber] = useState<number | null>(null);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
+  const [pdfPageAnalysisResults, setPdfPageAnalysisResults] = useState<Map<number, any>>(new Map());
   const [showAnalysisButtonPulse, setShowAnalysisButtonPulse] = useState(false);
   const [highlightedElement, setHighlightedElement] = useState<string | null>(null);
   const [activeViewMode, setActiveViewMode] = useState<'view' | 'annotate'>('view');
@@ -209,37 +216,49 @@ export default function Dashboard() {
   };
 
   const handleRunAnalysis = async () => {
-    if (!currentDrawing || !currentDrawing.fileUrl) {
+    // Determine if analyzing PDF pages or single image
+    const isAnalyzingPdf = pdfData && pdfData.pages && pdfData.pages.length > 0;
+    
+    if (!currentDrawing && !isAnalyzingPdf) {
       toast({ title: "No Drawing", description: "Please upload a drawing first.", variant: "destructive" });
       return;
     }
+
     const typesToAnalyze = selectedTakeoffTypes.length > 0 ? selectedTakeoffTypes : ['flooring', 'openings', 'walls'];
     if (typesToAnalyze.length === 0) {
       toast({ title: "No Selection", description: "Please select at least one takeoff type.", variant: "destructive" });
       return;
     }
 
+    // Get pages to analyze
+    let pagesToAnalyze: any[] = [];
+    if (isAnalyzingPdf) {
+      // Get all floor plan pages from pdfData
+      pagesToAnalyze = pdfData.pages.filter((p: any) => p.type === 'floor_plan');
+      if (pagesToAnalyze.length === 0) {
+        toast({ 
+          title: "No Floor Plans", 
+          description: "No floor plan pages found in the PDF. Only floor plans can be analyzed.",
+          variant: "destructive" 
+        });
+        return;
+      }
+    } else if (currentDrawing) {
+      pagesToAnalyze = [{ image_path: currentDrawing.file_url, page_number: 0, filename: currentDrawing.filename }];
+    }
+
     const startTime = performance.now();
-    console.log('[Analysis] Starting analysis...');
+    console.log('[Analysis] Starting analysis for', pagesToAnalyze.length, 'page(s)...');
     
     setIsAnalyzing(true);
     setAnalysisResults(null);
 
     try {
-      const fetchStart = performance.now();
-      const response = await fetch(currentDrawing.fileUrl);
-      const imageBlob = await response.blob();
-      const imageFile = new File([imageBlob], currentDrawing.filename!, { type: imageBlob.type });
-      console.log(`[Analysis] Image fetch took ${(performance.now() - fetchStart).toFixed(0)}ms`);
-
-      // Use custom calibrated scale if available, otherwise use standard scale
+      // Calculate scale value once
       let scaleValue: number;
       if (customPixelsPerFoot) {
-        // Custom calibration: convert pixels per foot to scale factor
-        // Assuming 96 DPI: scale = pixels_per_foot / 96
         scaleValue = customPixelsPerFoot / 96;
       } else {
-        // Convert scale string to numeric value (e.g., "1/4\" = 1'" -> 0.25)
         const scaleMap: { [key: string]: number } = {
           '1/4" = 1\'': 0.25,
           '1/8" = 1\'': 0.125,
@@ -249,25 +268,60 @@ export default function Dashboard() {
         scaleValue = scaleMap[selectedScale] || 0.25;
       }
 
-      const formData = new FormData();
-      formData.append('file', imageFile);
-      formData.append('types', JSON.stringify(typesToAnalyze));
-      formData.append('scale', scaleValue.toString());
+      // Analyze all pages
+      let allPredictions: Detection[] = [];
+      let lastResults: any = null;
+      const pageResultsMap = new Map<number, any>();
 
-      console.log('[Analysis] Sending request to ML service:', createMlUrl('/analyze'));
-      const mlStart = performance.now();
-      const results = await apiRequest(createMlUrl('/analyze'), 'POST', formData, true);
-      console.log(`[Analysis] ML inference took ${(performance.now() - mlStart).toFixed(0)}ms`);
+      for (const page of pagesToAnalyze) {
+        const pageImageUrl = page.image_path || page.fileUrl;
+        const pageNum = page.page_number || 0;
+        console.log(`[Analysis] Analyzing page ${pageNum}...`);
+        
+        const fetchStart = performance.now();
+        const response = await fetch(pageImageUrl);
+        const imageBlob = await response.blob();
+        const filename = page.filename || (page.page_number ? `page_${page.page_number}.jpg` : 'image.jpg');
+        const imageFile = new File([imageBlob], filename, { type: imageBlob.type });
+        console.log(`[Analysis] Image fetch took ${(performance.now() - fetchStart).toFixed(0)}ms`);
 
-      setAnalysisResults(results);
+        const formData = new FormData();
+        formData.append('file', imageFile);
+        formData.append('types', JSON.stringify(typesToAnalyze));
+        formData.append('scale', scaleValue.toString());
 
-      // MODIFICATION: The hook itself is removed from here. We now call the 'setDetections' function.
-      if (results && results.predictions) {
-        // We can flatten all predictions from different categories into one array for the store
-        const allPredictions = Object.values(results.predictions)
-          .flat()
-          .filter((item): item is Detection => isDetection(item));
+        console.log('[Analysis] Sending request to ML service:', createMlUrl('/analyze'));
+        const mlStart = performance.now();
+        const results = await apiRequest(createMlUrl('/analyze'), 'POST', formData, true);
+        console.log(`[Analysis] ML inference took ${(performance.now() - mlStart).toFixed(0)}ms`);
 
+        lastResults = results;
+        
+        // Store results per page for PDF pages
+        if (isAnalyzingPdf) {
+          pageResultsMap.set(pageNum, results);
+          console.log(`[Analysis] Stored results for page ${pageNum}`);
+        }
+
+        // Collect predictions from this page
+        if (results && results.predictions) {
+          const pagePredictions = Object.values(results.predictions)
+            .flat()
+            .filter((item): item is Detection => isDetection(item));
+          allPredictions = [...allPredictions, ...pagePredictions];
+        }
+      }
+
+      setAnalysisResults(lastResults);
+      
+      // Store per-page results for PDF
+      if (isAnalyzingPdf && pageResultsMap.size > 0) {
+        setPdfPageAnalysisResults(pageResultsMap);
+        console.log(`[Analysis] Stored analysis results for ${pageResultsMap.size} pages`);
+      }
+
+      // Update detections with all collected predictions
+      if (allPredictions.length > 0) {
         // Preserve manual rooms (from measurement tool) when updating detections
         const currentDetections = useDetectionsStore.getState().detections;
         const manualRooms = currentDetections.filter((d: any) => d.isManual);
@@ -275,23 +329,24 @@ export default function Dashboard() {
         // Combine AI predictions with manual rooms
         setDetections([...allPredictions, ...manualRooms]);
 
-        // Save analysis results to database as takeoffs
+        // Save analysis results to database as takeoffs (only for uploaded images, not PDF pages)
         try {
-          const saveStart = performance.now();
-          await apiRequest(createApiUrl(`/api/drawings/${currentDrawing.id}/analysis`), 'POST', {
-            results: results,
-            scale: scaleValue
-          });
-          console.log(`[Analysis] Saving to DB took ${(performance.now() - saveStart).toFixed(0)}ms`);
+          if (currentDrawing?.id) {
+            const saveStart = performance.now();
+            await apiRequest(createApiUrl(`/api/drawings/${currentDrawing.id}/analysis`), 'POST', {
+              results: lastResults,
+              scale: scaleValue
+            });
+            console.log(`[Analysis] Saving to DB took ${(performance.now() - saveStart).toFixed(0)}ms`);
 
-          // Invalidate takeoffs query to refresh the takeoff panel
-          queryClient.invalidateQueries({ queryKey: ["/api/drawings", currentDrawing.id, "takeoffs"] });
+            // Invalidate takeoffs query to refresh the takeoff panel
+            queryClient.invalidateQueries({ queryKey: ["/api/drawings", currentDrawing.id, "takeoffs"] });
+          }
         } catch (saveError) {
           console.error("Failed to save analysis results:", saveError);
-          // Don't show error to user as the analysis itself succeeded
         }
       } else {
-        setDetections([]); // Clear detections if the analysis returns no predictions
+        setDetections([]);
       }
 
       const totalTime = performance.now() - startTime;
@@ -299,7 +354,7 @@ export default function Dashboard() {
       
       toast({
         title: "Analysis Complete",
-        description: `Successfully analyzed ${typesToAnalyze.length} element types in ${(totalTime / 1000).toFixed(1)}s`,
+        description: `Successfully analyzed ${pagesToAnalyze.length} page(s) with ${typesToAnalyze.length} element types in ${(totalTime / 1000).toFixed(1)}s`,
       });
     } catch (error) {
       toast({
@@ -327,7 +382,6 @@ export default function Dashboard() {
 
     try {
       // Optimize image before upload
-      setUploadProgress('Optimizing image...');
       const originalSize = formatFileSize(file.size);
       const optimizedFile = await compressImage(file, {
         maxWidth: 2048,
@@ -338,29 +392,35 @@ export default function Dashboard() {
       const newSize = formatFileSize(optimizedFile.size);
       console.log(`Image optimized: ${originalSize} → ${newSize}`);
       
-      setUploadProgress('Uploading to server...');
       const uploadFormData = new FormData();
       uploadFormData.append('file', optimizedFile);
       const uploadResult = await apiRequest(createApiUrl('/api/upload'), 'POST', uploadFormData, true);
+
+      if (!uploadResult || !uploadResult.filename || !uploadResult.file_url) {
+        throw new Error('Invalid upload response');
+      }
 
       let projectToUse = currentProject || await createNewProject(file.name);
       setCurrentProject(projectToUse);
 
       const drawingData = {
-        projectId: projectToUse.id,
+        project_id: projectToUse.id,
         name: file.name,
         filename: uploadResult.filename,
-        fileUrl: uploadResult.fileUrl,
-        fileType: file.type,
+        file_url: uploadResult.file_url,
+        file_type: file.type,
         status: "complete",
         scale: selectedScale,
-        aiProcessed: false
+        ai_processed: false
       };
+      console.log('Drawing data:', drawingData);
       const savedDrawing = await apiRequest(createApiUrl(`/api/projects/${projectToUse.id}/drawings`), "POST", drawingData);
+      console.log('Upload response:', savedDrawing);
 
       setCurrentDrawing(savedDrawing);
       toast({ title: "Upload Successful", description: "Select takeoff types and click 'Run AI Analysis'." });
     } catch (error) {
+      console.error('Error uploading file:', error);
       toast({ title: "Upload Failed", description: error instanceof Error ? error.message : "An unknown error occurred", variant: "destructive" });
     } finally {
       setIsUploading(false);
@@ -620,14 +680,73 @@ export default function Dashboard() {
     }
   };
 
+  // Action buttons for navbar
+  const actionButtons = (
+    <>
+      {/* AI Analysis Button */}
+      <Button
+        onClick={() => setShowTakeoffModal(true)}
+        className={cn(
+          "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all hover:scale-105 text-xs px-2 h-7",
+          showAnalysisButtonPulse && "animate-pulse"
+        )}
+        size="sm"
+      >
+        <Sparkles className="w-3 h-3 mr-1" />
+        AI Analysis
+      </Button>
+
+      {/* Export Report Button */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogTrigger asChild>
+          <Button
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 h-7"
+            disabled={!currentProject || !currentDrawing}
+          >
+            <FileText className="w-3 h-3 mr-1" />
+            Export Report
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Generate Report</DialogTitle>
+          </DialogHeader>
+          {currentProject && currentDrawing ? (
+            <ReportGeneratorComponent
+              project={currentProject}
+              takeoffs={[]}
+              drawings={[currentDrawing]}
+              analyses={[]}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Please select a project and drawing first.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Chat Button */}
+      <Button 
+        variant="outline"
+        size="sm" 
+        className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600 text-xs px-2 h-7"
+      >
+        <MessageSquare className="w-3 h-3 mr-1" />
+        AI Chat
+      </Button>
+    </>
+  );
+
   return (
-    <Layout>
+    <Layout actionButtons={actionButtons}>
       <div className="flex h-full overflow-hidden">
         {/* Vertical Tool Palette */}
-        <div className="hidden lg:flex">
+        <div className="hidden md:flex">
           <VerticalToolPalette
             activeTool={activePaletteTool}
             onToolChange={handleToolChange}
+            onMeasurementModeChange={(mode) => setMeasurementMode(mode as 'distance' | 'area')}
+            measurementMode={measurementMode as 'distance' | 'area' | undefined}
             onUndo={undo}
             onRedo={redo}
             canUndo={canUndo}
@@ -636,214 +755,61 @@ export default function Dashboard() {
         </div>
 
         <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-background border-b border-border px-4 lg:px-6 py-3">
-            <div className="flex items-center">
-              {/* Mobile Left Panel - Takeoff Selector */}
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="lg:hidden mr-2">
-                    <PanelLeft className="w-5 h-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="p-0 w-80">
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>Takeoff Types Menu</SheetTitle>
-                    <SheetDescription>Select building elements to detect and measure from this list.</SheetDescription>
-                  </SheetHeader>
-                  <VerticalTakeoffSelector
-                    selectedTypes={selectedTakeoffTypes}
-                    onSelectionChange={setSelectedTakeoffTypes}
-                    onRunAnalysis={handleRunAnalysis}
-                    isAnalyzing={isAnalyzing}
-                  />
-                </SheetContent>
-              </Sheet>
 
-              {/* Mobile Tool Palette */}
-              <div className="lg:hidden flex items-center gap-1 mr-2 bg-muted rounded-lg p-1">
-                <Button
-                  variant={activePaletteTool === 'select' ? 'default' : 'ghost'}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleToolChange('select')}
-                >
-                  <Hand className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={activePaletteTool === 'measure' ? 'default' : 'ghost'}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleToolChange('measure')}
-                >
-                  <Ruler className="w-4 h-4" />
-                </Button>
-              </div>
+          <div className="flex-1 relative bg-muted/30 flex flex-col border-border p-1 sm:p-2 md:p-3 lg:p-4 overflow-hidden">
 
-              <div className="flex items-center gap-2">
-                {currentProject && (
-                  <span className="text-sm font-medium text-foreground">{currentProject.name}</span>
-                )}
-                {currentProject && currentDrawing && (
-                  <span className="text-muted-foreground">/</span>
-                )}
-                {currentDrawing && (
-                  <span className="text-sm text-muted-foreground">{currentDrawing.name}</span>
-                )}
-                {!currentProject && !currentDrawing && (
-                  <span className="text-sm text-muted-foreground">No drawing selected</span>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="ml-auto flex items-center gap-2">
-                {/* AI Analysis Button - Primary Action */}
-                <Button
-                  onClick={() => setShowTakeoffModal(true)}
-                  className={cn(
-                    "hidden sm:flex bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all hover:scale-105",
-                    showAnalysisButtonPulse && "animate-pulse"
-                  )}
-                  size="sm"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  AI Analysis
-                </Button>
-
-                <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      className="hidden sm:flex bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!currentProject || !currentDrawing}
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Export Report
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Generate Report</DialogTitle>
-                    </DialogHeader>
-                    {currentProject && currentDrawing ? (
-                      <ReportGeneratorComponent
-                        project={currentProject}
-                        takeoffs={[]}
-                        drawings={[currentDrawing]}
-                        analyses={[]}
-                      />
+            {/* Scale & Calibration Controls - Fixed Bottom Right */}
+                <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 md:bottom-4 md:right-4 z-20 flex items-center gap-1 sm:gap-2 bg-card rounded-lg shadow-lg border border-border p-2 sm:p-3">
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    {!customPixelsPerFoot ? (
+                      <>
+                        <span className="text-xs text-muted-foreground hidden sm:inline">Scale:</span>
+                        <select className="text-xs bg-background border border-border rounded px-1 sm:px-2 py-1 text-foreground" value={selectedScale} onChange={(e) => setSelectedScale(e.target.value)} disabled={isCalibrating}>
+                          <option>1/4" = 1'</option>
+                          <option>1/8" = 1'</option>
+                          <option>1/2" = 1'</option>
+                          <option>1" = 1'</option>
+                        </select>
+                      </>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Please select a project and drawing first.</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Calibrated:</span>
+                        <span className="text-xs font-medium text-primary">{customPixelsPerFoot.toFixed(1)} px/ft</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCustomPixelsPerFoot(null)}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Reset
+                        </Button>
+                      </div>
                     )}
-                  </DialogContent>
-                </Dialog>
-
-                <Button 
-                  variant="outline"
-                  size="sm" 
-                  className="hidden sm:flex bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  AI Chat
-                </Button>
-              </div>
-
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="lg:hidden ml-auto">
-                    <PanelRight className="w-5 h-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="p-0 w-full sm:w-96">
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>Organized Takeoff Panel</SheetTitle>
-                    <SheetDescription>View organized takeoffs by location, type, or trade.</SheetDescription>
-                  </SheetHeader>
-                  <OrganizedTakeoffPanel
-                    drawing={currentDrawing}
-                    selectedTypes={selectedTakeoffTypes}
-                    isAnalyzing={isAnalyzing}
-                    onStartAnalysis={handleRunAnalysis}
-                    analysisResults={analysisResults}
-                  />
-                </SheetContent>
-              </Sheet>
-            </div>
-          </div>
-
-          <div className="flex-1 relative bg-muted/30 flex flex-col border-border p-2 lg:p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 lg:space-x-4">
-                <div className="flex items-center space-x-2">
-                  {!customPixelsPerFoot ? (
-                    <>
-                      <span className="text-xs text-muted-foreground hidden sm:inline">Scale:</span>
-                      <select className="text-xs bg-background border border-border rounded px-2 py-1 text-foreground" value={selectedScale} onChange={(e) => setSelectedScale(e.target.value)} disabled={isCalibrating}>
-                        <option>1/4" = 1'</option>
-                        <option>1/8" = 1'</option>
-                        <option>1/2" = 1'</option>
-                        <option>1" = 1'</option>
-                      </select>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Calibrated:</span>
-                      <span className="text-xs font-medium text-primary">{customPixelsPerFoot.toFixed(1)} px/ft</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setCustomPixelsPerFoot(null)}
-                        className="h-6 px-2 text-xs"
-                      >
-                        Reset
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <CalibrationTool
-                  isActive={isCalibrating}
-                  points={calibrationPoints}
-                  onActivate={() => {
-                    setIsCalibrating(true);
-                    setIsPanMode(false);
-                  }}
-                  onComplete={(pixelsPerFoot) => {
-                    setCustomPixelsPerFoot(pixelsPerFoot);
-                    setIsCalibrating(false);
-                    setCalibrationPoints([]);
-                    toast({
-                      title: "Calibration Complete",
-                      description: `Scale set to ${pixelsPerFoot.toFixed(1)} pixels per foot`,
-                    });
-                  }}
-                  onCancel={() => {
-                    setIsCalibrating(false);
-                    setCalibrationPoints([]);
-                  }}
-                />
-                
-                {/* Measurement Mode Dropdown - only show when measure tool is active */}
-                {activePaletteTool === 'measure' && measurementMode && (
-                  <div className="ml-4">
-                    <select 
-                      className="text-xs bg-background border border-border rounded px-3 py-1.5 text-foreground h-8"
-                      value={measurementMode}
-                      onChange={(e) => setMeasurementMode(e.target.value as 'distance' | 'area')}
-                    >
-                      <option value="distance">📏 Distance</option>
-                      <option value="area">📐 Area</option>
-                    </select>
                   </div>
-                )}
-              </div>
-            </div>
+                  <CalibrationTool
+                    isActive={isCalibrating}
+                    points={calibrationPoints}
+                    onActivate={() => {
+                      setIsCalibrating(true);
+                      setIsPanMode(false);
+                    }}
+                    onComplete={(pixelsPerFoot) => {
+                      setCustomPixelsPerFoot(pixelsPerFoot);
+                      setIsCalibrating(false);
+                      setCalibrationPoints([]);
+                      toast({
+                        title: "Calibration Complete",
+                        description: `Scale set to ${pixelsPerFoot.toFixed(1)} pixels per foot`,
+                      });
+                    }}
+                    onCancel={() => {
+                      setIsCalibrating(false);
+                      setCalibrationPoints([]);
+                    }}
+                  />
+                </div>
 
-            {isAnalyzing ? (
-              <div className="flex-1 flex items-center justify-center">
-                <AnalysisLoading stage="analyzing" />
-              </div>
-            ) : (
-              <>
-                <InteractiveFloorPlan
+                <UnifiedDocumentViewer
                   drawing={currentDrawing}
                   highlightedElement={selectedElementId}
                   activeViewMode={activeViewMode}
@@ -851,12 +817,13 @@ export default function Dashboard() {
                   selectedScale={selectedScale}
                   onElementClick={setSelectedElementId}
                   onMeasurement={() => { }}
-                  analysisResults={analysisResults}
+                  analysisResults={pdfPageData ? null : analysisResults}
                   isCalibrating={isCalibrating}
                   calibrationPoints={calibrationPoints}
                   isPanMode={isPanMode}
                   hiddenElements={hiddenElements}
                   measurementMode={measurementMode}
+                  isAnalyzing={isAnalyzing}
                   onMeasurementClick={(point) => {
                     // Don't add points while in pan mode
                     if (isPanMode) {
@@ -886,15 +853,118 @@ export default function Dashboard() {
                       setCalibrationPoints([...calibrationPoints, { x, y }]);
                     }
                   }}
+                  onBack={() => {
+                    setCurrentDrawing(null);
+                    setAnalysisResults(null); 
+                    setDetections([]); 
+                  }}
                 />
 
-                {!currentDrawing && (
-                  <DrawingViewer 
-                    drawing={null} 
+                {/* Show PDF gallery + viewer only when viewing PDF pages (not regular images) */}
+                {pdfPageData && !currentDrawing ? (
+                  <div className="flex-1 flex overflow-hidden">
+                    {/* Show PDF gallery sidebar when PDF is being viewed */}
+                    {pdfData && (
+                      <PDFGallerySidebar 
+                        pdfData={pdfData}
+                        selectedPageNumber={selectedPdfPageNumber}
+                        onPageSelect={(pageNum) => {
+                          console.log(`[Dashboard] Page selected: ${pageNum}`);
+                          setSelectedPdfPageNumber(pageNum);
+                          const page = pdfData.pages.find((p: any) => p.page_number === pageNum);
+                          if (page) {
+                            console.log(`[Dashboard] Setting pdfPageData for page ${pageNum}`);
+                            setPdfPageData(page);
+                            // Set analysis results for this page if available
+                            const pageResults = pdfPageAnalysisResults.get(pageNum);
+                            console.log(`[Dashboard] Looking for results for page ${pageNum}, found:`, !!pageResults);
+                            if (pageResults) {
+                              setAnalysisResults(pageResults);
+                              console.log(`[Dashboard] Loaded analysis results for page ${pageNum}`, pageResults);
+                            } else {
+                              console.log(`[Dashboard] No analysis results for page ${pageNum}`);
+                              setAnalysisResults(null);
+                            }
+                          }
+                        }}
+                        onBack={() => {
+                          setPdfData(null);
+                          setPdfPageData(null);
+                          setSelectedPdfPageNumber(null);
+                          setAnalysisResults(null); 
+                          setDetections([]); 
+                        }}
+                      />
+                    )}
+                    
+                    {/* Show UnifiedDocumentViewer for PDF page (unified viewer) */}
+                    <UnifiedDocumentViewer
+                      drawing={null}
+                      pdfPageData={pdfPageData}
+                      highlightedElement={selectedElementId}
+                      activeViewMode={activeViewMode}
+                      activeTool={activeTool}
+                      selectedScale={selectedScale}
+                      onElementClick={setSelectedElementId}
+                      onMeasurement={() => { }}
+                      analysisResults={analysisResults}
+                      isAnalyzing={isAnalyzing}
+                      isCalibrating={isCalibrating}
+                      calibrationPoints={calibrationPoints}
+                      isPanMode={isPanMode}
+                      hiddenElements={hiddenElements}
+                      measurementMode={measurementMode}
+                      onMeasurementClick={(point) => {
+                        if (isPanMode) {
+                          return;
+                        }
+                        console.log('[Dashboard] Measurement click on PDF. Current points:', measurementPoints.length, 'Adding:', point);
+                        const newPoints = [...measurementPoints, point];
+                        setMeasurementPoints(newPoints);
+                        updateCurrentMeasurement(newPoints);
+                        console.log('[Dashboard] New points array:', newPoints.length);
+                        
+                        // Auto-complete distance measurement after 2 points
+                        if (measurementMode === 'distance' && newPoints.length === 2) {
+                          completeMeasurement(newPoints);
+                        }
+                      }}
+                      onMeasurementComplete={() => {
+                        // Complete area measurement
+                        if (measurementMode === 'area' && measurementPoints.length >= 3) {
+                          completeMeasurement(measurementPoints);
+                        }
+                      }}
+                      onMeasurementRightClick={handleMeasurementRightClick}
+                      onCalibrationClick={(x, y) => {
+                        if (calibrationPoints.length < 2) {
+                          setCalibrationPoints([...calibrationPoints, { x, y }]);
+                        }
+                      }}
+                      onBack={() => {
+                        setPdfData(null);
+                        setPdfPageData(null);
+                        setSelectedPdfPageNumber(null);
+                        setAnalysisResults(null); 
+                        setDetections([]); 
+                      }}
+                    />
+                  </div>
+                ) : !currentDrawing ? (
+                  /* Show upload dialog only when no drawing and no PDF */
+                  <FileUploadDialog 
                     onFileUpload={handleFileUpload} 
                     isUploading={isUploading}
+                    onPDFPageSelected={(pageData: any) => {
+                      // When PDF is processed, set the PDF data
+                      if (pageData && pageData.pages) {
+                        setPdfData(pageData);
+                        setSelectedPdfPageNumber(pageData.pages[0]?.page_number || null);
+                        setPdfPageData(pageData.pages[0] || null);
+                      }
+                    }}
                   />
-                )}
+                ) : null}
                 
                 {isUploading && uploadProgress && (
                   <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
@@ -903,8 +973,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-              </>
-            )}
           </div>
         </main>
 
@@ -914,7 +982,7 @@ export default function Dashboard() {
           collapsedWidth={64}
           collapsed={isRightPanelCollapsed}
           onCollapsedChange={setIsRightPanelCollapsed}
-          className="hidden lg:flex flex-col"
+          className="hidden md:flex flex-col"
         >
 
           <ElementListPanel

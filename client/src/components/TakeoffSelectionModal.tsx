@@ -47,8 +47,7 @@ const takeoffTypes: TakeoffType[] = [
     description: "Floor area and room detection",
     unit: "sq ft",
     icon: Maximize,
-    color: "text-amber-600 bg-amber-50 border-amber-200",
-    disabled: true
+    color: "text-amber-600 bg-amber-50 border-amber-200"
   },
   {
     id: "walls",
@@ -183,8 +182,8 @@ export function TakeoffSelectionModal({
                       ? "opacity-50 cursor-not-allowed bg-muted" 
                       : "cursor-pointer hover:shadow-md hover:scale-[1.02]",
                     !type.disabled && isSelected 
-                      ? 'bg-accent border-primary border-2 shadow-sm' 
-                      : !type.disabled && 'bg-card border-border hover:border-muted-foreground/30'
+                      ? 'bg-primary/10 border-primary border-2 shadow-sm' 
+                      : !type.disabled && 'bg-card border-border hover:border-primary/30'
                   )}
                 >
                   <div className="flex items-start space-x-3">

@@ -9,7 +9,8 @@ import {
   Pencil, 
   Settings,
   Undo2,
-  Redo2
+  Redo2,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export type ToolType = 'select' | 'pan' | 'cut' | 'merge' | 'split' | 'measure' | 'markup' | 'settings';
 
@@ -28,11 +35,14 @@ interface Tool {
   label: string;
   shortcut?: string;
   disabled?: boolean;
+  hasSubmenu?: boolean;
 }
 
 interface VerticalToolPaletteProps {
   activeTool: ToolType;
   onToolChange: (tool: ToolType) => void;
+  onMeasurementModeChange?: (mode: 'distance' | 'area') => void;
+  measurementMode?: 'distance' | 'area';
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
@@ -42,11 +52,14 @@ interface VerticalToolPaletteProps {
 export function VerticalToolPalette({
   activeTool,
   onToolChange,
+  onMeasurementModeChange,
+  measurementMode = 'distance',
   onUndo,
   onRedo,
   canUndo = false,
   canRedo = false,
 }: VerticalToolPaletteProps) {
+  const [showMeasurementMenu, setShowMeasurementMenu] = useState(false);
   const tools: Tool[] = [
     { 
       id: 'select', 
@@ -85,7 +98,8 @@ export function VerticalToolPalette({
       id: 'measure', 
       icon: Move3d, 
       label: 'Measure',
-      shortcut: 'R'
+      shortcut: 'R',
+      hasSubmenu: true
     },
     { 
       id: 'markup', 
@@ -151,6 +165,85 @@ export function VerticalToolPalette({
           
           // Add separator before cut tool, measure tool and settings
           const showSeparator = index === 2 || index === 5 || index === 7;
+          
+          // Special handling for measure tool with submenu
+          if (tool.hasSubmenu && tool.id === 'measure') {
+            return (
+              <div key={tool.id} className="w-full flex flex-col items-center">
+                {showSeparator && (
+                  <div className="w-10 h-px bg-border my-2" />
+                )}
+                
+                <DropdownMenu open={showMeasurementMenu} onOpenChange={setShowMeasurementMenu}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={tool.disabled}
+                          onClick={() => onToolChange(tool.id)}
+                          className={cn(
+                            "w-10 h-10 rounded-md flex items-center justify-center transition-all relative",
+                            "hover:bg-accent hover:scale-105",
+                            isActive && "bg-primary text-primary-foreground shadow-sm scale-100",
+                            !isActive && "text-muted-foreground",
+                            tool.disabled && "opacity-40 cursor-not-allowed"
+                          )}
+                        >
+                          <IconComponent className="w-5 h-5" />
+                          {isActive && (
+                            <ChevronRight className="w-3 h-3 absolute -right-1 top-1/2 -translate-y-1/2" />
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent 
+                      side="right" 
+                      className="flex items-center gap-2 px-2 py-1 text-xs"
+                      sideOffset={5}
+                    >
+                      <span className="font-medium">{tool.label}</span>
+                      {tool.shortcut && (
+                        <kbd className="px-1.5 py-0.5 text-[10px] bg-muted rounded border border-border">
+                          {tool.shortcut}
+                        </kbd>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <DropdownMenuContent side="right" align="start" className="w-32">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        onMeasurementModeChange?.('distance');
+                        onToolChange('measure'); // Call onToolChange to set active tool to 'measure'
+                        setShowMeasurementMenu(false);
+                      }}
+                      className={cn(
+                        "cursor-pointer",
+                        measurementMode === 'distance' && "bg-accent"
+                      )}
+                    >
+                      <span className="text-sm">📏 Distance</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        onMeasurementModeChange?.('area');
+                        onToolChange('measure'); // Call onToolChange to set active tool to 'measure'
+                        setShowMeasurementMenu(false);
+                      }}
+                      className={cn(
+                        "cursor-pointer",
+                        measurementMode === 'area' && "bg-accent"
+                      )}
+                    >
+                      <span className="text-sm">📐 Area</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            );
+          }
           
           return (
             <div key={tool.id} className="w-full flex flex-col items-center">

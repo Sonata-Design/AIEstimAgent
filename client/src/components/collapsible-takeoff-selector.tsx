@@ -164,8 +164,8 @@ export function CollapsibleTakeoffSelector({
                   className={cn(
                     "cursor-pointer transition-all duration-200 rounded-lg border p-3",
                     isSelected 
-                      ? 'bg-accent border-primary border-2 shadow-sm' 
-                      : 'bg-card border-border hover:border-muted-foreground/30 hover:bg-accent/50'
+                      ? 'bg-primary/10 border-primary border-2 shadow-sm' 
+                      : 'bg-card border-border hover:border-primary/30 hover:bg-primary/5'
                   )}
                   onClick={() => handleTypeToggle(type.id)}
                 >

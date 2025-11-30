@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { Building2, Maximize, ArrowUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MeasurementCategoryDialogProps {
   open: boolean;
@@ -73,7 +74,12 @@ export function MeasurementCategoryDialog({
                 return (
                   <div
                     key={category.id}
-                    className="flex items-center space-x-3 rounded-lg border p-3 cursor-pointer hover:bg-accent"
+                    className={cn(
+                      "flex items-center space-x-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                      selectedCategory === category.id
+                        ? "border-primary bg-primary/10"
+                        : "hover:border-primary/50"
+                    )}
                     onClick={() => setSelectedCategory(category.id)}
                   >
                     <RadioGroupItem value={category.id} id={category.id} />

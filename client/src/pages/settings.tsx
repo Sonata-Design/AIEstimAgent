@@ -111,8 +111,8 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl">
+      <div className="p-6 md:p-8 lg:p-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl">
           
           {/* Catalog Management */}
           <Card>

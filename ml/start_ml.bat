@@ -1,0 +1,3 @@
+@echo off
+echo Starting ML Service with unbuffered output...
+python -u -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload

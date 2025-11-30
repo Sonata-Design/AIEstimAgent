@@ -31,6 +31,15 @@ interface TakeoffType {
 
 const TAKEOFF_TYPES: TakeoffType[] = [
   {
+    id: "rooms",
+    name: "Rooms & Flooring",
+    icon: Box,
+    description: "Room detection and floor area measurements",
+    category: "rooms",
+    unit: "sq ft",
+    color: "bg-purple-500"
+  },
+  {
     id: "doors",
     name: "Doors",
     icon: DoorOpen,

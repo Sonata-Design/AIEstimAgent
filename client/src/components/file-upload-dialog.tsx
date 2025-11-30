@@ -1,25 +1,25 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Upload, 
-  FileImage, 
-  File,
-  X,
-  CheckCircle
-} from "lucide-react";
-import type { Drawing } from "@shared/schema";
+import { Upload, Loader2 } from "lucide-react";
+import { PageGallery } from "./page-gallery";
+import { createApiUrl } from "@/config/api";
+import type { PDFProcessResult } from "@/types/pdf";
 
 interface FileUploadDialogProps {
   onFileUpload: (file: File) => Promise<void> | void;
   isUploading?: boolean;
+  onPDFPageSelected?: (pageData: any) => void;
 }
 
-export default function FileUploadDialog({ onFileUpload, isUploading }: FileUploadDialogProps) {
+export default function FileUploadDialog({ onFileUpload, isUploading, onPDFPageSelected }: FileUploadDialogProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [internalUploading, setInternalUploading] = useState(false);
+  const [isPDFProcessing, setIsPDFProcessing] = useState(false);
+  const [pdfData, setPDFData] = useState<PDFProcessResult | null>(null);
+  const [selectedPageNumber, setSelectedPageNumber] = useState<number | null>(null);
   const { toast } = useToast();
+
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -44,7 +44,7 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
     handleFiles(files);
   }, []);
 
-  const handleFiles = (files: File[]) => {
+  const handleFiles = async (files: File[]) => {
     const validFiles = files.filter(file => {
       const isValidType = file.type.includes('pdf') || 
                          file.type.includes('image') ||
@@ -77,46 +77,152 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
     });
 
     if (validFiles.length > 0) {
-      setUploadedFiles(validFiles);
+      const firstFile = validFiles[0];
+      
+      // Check if it's a PDF
+      if (firstFile.type === 'application/pdf' || firstFile.name.toLowerCase().endsWith('.pdf')) {
+        await handlePDFUpload(firstFile);
+      } else {
+        // Auto-upload image files immediately
+        await handleImageUpload(firstFile);
+      }
     }
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUpload = async () => {
-    if (uploadedFiles.length === 0) return;
-    
+  const handleImageUpload = async (file: File) => {
     setInternalUploading(true);
-    const firstFile = uploadedFiles[0];
-    
     try {
-      await onFileUpload(firstFile);
-      setInternalUploading(false);
+      await onFileUpload(file);
     } catch (error) {
-      console.error('File upload failed:', error);
-      setInternalUploading(false);
+      console.error('Image upload failed:', error);
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload file",
+        description: error instanceof Error ? error.message : "Failed to upload image",
         variant: "destructive",
       });
+    } finally {
+      setInternalUploading(false);
     }
   };
 
-  const getFileIcon = (file: File) => {
-    if (file.type.includes('image')) {
-      return <FileImage className="w-5 h-5 text-blue-500" />;
+  const handlePDFUpload = async (file: File) => {
+    setIsPDFProcessing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Use our backend API proxy endpoint
+      const uploadUrl = createApiUrl('/api/upload-pdf');
+
+      console.log('[PDF Upload] Starting upload...');
+      console.log('[PDF Upload] File:', file.name, file.size, 'bytes');
+      console.log('[PDF Upload] Endpoint:', uploadUrl);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('[PDF Upload] Response status:', response.status);
+      console.log('[PDF Upload] Response OK:', response.ok);
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('[PDF Upload] Error response:', error);
+        throw new Error(error.detail || error.error || 'Failed to process PDF');
+      }
+
+      const result = await response.json();
+      console.log('[PDF Upload] Success! Result:', result);
+
+      if (result.success) {
+        toast({
+          title: 'PDF processed successfully',
+          description: `Found ${result.data.total_pages} pages`,
+        });
+        setPDFData(result.data);
+        // Notify parent component about PDF data so it can show the gallery
+        console.log('[PDF Upload] Calling onPDFPageSelected with:', result.data);
+        if (onPDFPageSelected) {
+          onPDFPageSelected(result.data);
+        } else {
+          console.warn('[PDF Upload] onPDFPageSelected callback not provided');
+        }
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch (error: any) {
+      console.error('[PDF Upload] ERROR:', error);
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Failed to process PDF',
+        variant: 'destructive',
+      });
+      setPDFData(null);
+    } finally {
+      setIsPDFProcessing(false);
     }
-    return <File className="w-5 h-5 text-red-500" />;
   };
+
+
+  const handleBackFromPDF = () => {
+    setPDFData(null);
+    setSelectedPageNumber(null);
+  };
+
+  // Notify parent when page is selected
+  useEffect(() => {
+    if (pdfData && selectedPageNumber !== null && onPDFPageSelected) {
+      const selectedPage = pdfData.pages.find(p => p.page_number === selectedPageNumber);
+      if (selectedPage) {
+        onPDFPageSelected(selectedPage);
+      }
+    }
+  }, [selectedPageNumber, pdfData, onPDFPageSelected]);
+
+  // NOTE: PDF gallery is now handled by PDFGallerySidebar component in dashboard
+  // This component only handles file uploads
+
+  // Show PDF processing state
+  if (isPDFProcessing) {
+    return (
+      <div className="flex-1 bg-muted/30 flex items-center justify-center p-8">
+        <div className="max-w-lg w-full text-center">
+          <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            Processing PDF...
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Extracting and classifying pages...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show uploading state
+  if (internalUploading) {
+    return (
+      <div className="flex-1 bg-muted/30 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            Uploading...
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Please wait while your file is being uploaded
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 bg-muted/30 flex items-center justify-center p-8">
-      <div className="max-w-lg w-full">
+    <div className="flex-1 bg-muted/30 flex items-center justify-center p-4 sm:p-8 w-full">
+      <div className="w-full max-w-2xl">
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          className={`border-2 border-dashed rounded-lg p-8 sm:p-12 text-center transition-colors ${
             isDragOver 
               ? 'border-primary bg-primary/10' 
               : 'border-border bg-card hover:border-muted-foreground'
@@ -127,7 +233,7 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
         >
           <div className="mb-6">
             <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
               Drop files here to upload
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
@@ -138,69 +244,18 @@ export default function FileUploadDialog({ onFileUpload, isUploading }: FileUplo
             </p>
           </div>
 
-          <div className="space-y-4">
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-            />
-            <label htmlFor="file-upload">
-              <Button asChild className="cursor-pointer">
-                <span>Choose Files</span>
-              </Button>
-            </label>
-
-            {/* File List */}
-            {uploadedFiles.length > 0 && (
-              <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-medium text-foreground text-left">
-                  Selected Files ({uploadedFiles.length})
-                </h4>
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-muted p-3 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {getFileIcon(file)}
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-foreground">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {(file.size / 1024 / 1024).toFixed(1)} MB
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-                
-                <Button 
-                  onClick={handleUpload}
-                  disabled={isUploading ?? internalUploading}
-                  className="w-full mt-4 bg-primary hover:bg-primary/90"
-                >
-                  {(isUploading ?? internalUploading) ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={handleFileSelect}
+            className="hidden"
+            id="file-upload"
+          />
+          <label htmlFor="file-upload">
+            <Button asChild className="cursor-pointer">
+              <span>Choose Files</span>
+            </Button>
+          </label>
         </div>
       </div>
     </div>

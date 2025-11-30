@@ -5,15 +5,23 @@ import io
 import json
 import os
 import uuid
+import shutil
+import base64
+import requests
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from dotenv import load_dotenv
 from inference_sdk import InferenceHTTPClient
+import torch
+from ultralytics import YOLO
 import numpy as np
+from pdf_processor import PDFProcessor
 
 # ------------------------------------------------------------------------------
 # Env & constants
@@ -30,7 +38,7 @@ ROOM_VERSION = os.getenv("ROOM_VERSION", "")
 # Wall Detection Model - detects only walls
 WALL_API_KEY = os.getenv("WALL_API_KEY", "")
 WALL_WORKSPACE = os.getenv("WALL_WORKSPACE", "")
-WALL_PROJECT = os.getenv("WALL_PROJECT", "")  # mytoolllaw-6vckj
+WALL_PROJECT = os.getenv("WALL_PROJECT", "")  
 WALL_VERSION = os.getenv("WALL_VERSION", "")
 
 # Door & Window Model - detects doors and windows (filters out room/wall from this model)
@@ -45,6 +53,16 @@ ROOM_MODEL_ID = ""
 if ROOM_PROJECT and ROOM_VERSION:
     ROOM_MODEL_ID = f"{ROOM_PROJECT}/{ROOM_VERSION}"
 
+# Load custom room detection model if available
+CUSTOM_ROOM_MODEL = None
+CUSTOM_ROOM_MODEL_PATH = os.getenv("CUSTOM_ROOM_MODEL_PATH")
+if CUSTOM_ROOM_MODEL_PATH and os.path.exists(CUSTOM_ROOM_MODEL_PATH):
+    try:
+        CUSTOM_ROOM_MODEL = YOLO(CUSTOM_ROOM_MODEL_PATH)
+        print(f"[ML] Loaded custom room detection model from {CUSTOM_ROOM_MODEL_PATH}")
+    except Exception as e:
+        print(f"[WARNING] Failed to load custom room detection model: {e}")
+
 WALL_MODEL_ID = ""
 if WALL_PROJECT and WALL_VERSION:
     WALL_MODEL_ID = f"{WALL_PROJECT}/{WALL_VERSION}"
@@ -56,21 +74,42 @@ if DOORWINDOW_PROJECT and DOORWINDOW_VERSION:
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/opt/render/project/src/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# PDF uploads directory
+PDF_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "pdfs")
+os.makedirs(PDF_UPLOAD_DIR, exist_ok=True)
+
+# Page Classification Model Configuration (Roboflow)
+PAGE_API_KEY = os.getenv("PAGE_API_KEY", "")
+PAGE_PROJECT = os.getenv("PAGE_PROJECT", "")
+PAGE_VERSION = os.getenv("PAGE_VERSION", "")
+
+# Initialize PDF processor (will be configured with classify_fn after _classify_image is defined)
+pdf_processor = None
+
 # Custom YOLO model for ensemble learning (optional)
 CUSTOM_WINDOW_MODEL_PATH = os.getenv("CUSTOM_WINDOW_MODEL_PATH", "")
 CUSTOM_WINDOW_MODEL = None
 
 # Try to load custom YOLO model if path is provided
+print(f"[ML] DEBUG: CUSTOM_WINDOW_MODEL_PATH = {CUSTOM_WINDOW_MODEL_PATH}")
+print(f"[ML] DEBUG: Path exists? {os.path.exists(CUSTOM_WINDOW_MODEL_PATH) if CUSTOM_WINDOW_MODEL_PATH else 'No path set'}")
+
 if CUSTOM_WINDOW_MODEL_PATH and os.path.exists(CUSTOM_WINDOW_MODEL_PATH):
     try:
+        import time
+        start_time = time.time()
         from ultralytics import YOLO
         CUSTOM_WINDOW_MODEL = YOLO(CUSTOM_WINDOW_MODEL_PATH)
+        load_time = time.time() - start_time
         print(f"[ML] SUCCESS: Loaded custom window model from: {CUSTOM_WINDOW_MODEL_PATH}")
+        print(f"[ML] Model loading took {load_time:.2f} seconds")
     except Exception as e:
         print(f"[ML] WARNING: Failed to load custom window model: {e}")
         CUSTOM_WINDOW_MODEL = None
 else:
     print("[ML] INFO: Custom window model not configured (set CUSTOM_WINDOW_MODEL_PATH in .env)")
+    if CUSTOM_WINDOW_MODEL_PATH:
+        print(f"[ML] ERROR: Path set but file not found: {CUSTOM_WINDOW_MODEL_PATH}")
 
 # ------------------------------------------------------------------------------
 # App
@@ -79,17 +118,22 @@ else:
 app = FastAPI(title="AIEstimAgent — ML API", version="1.0.0")
 
 # CORS configuration for production
-allowed_origins = [
+default_origins = [
     "https://estimagent.vercel.app",
     "http://localhost:5173",
     "http://localhost:5001",
-    "http://localhost:8000"
+    "http://localhost:8000",
+    "https://aiestimagent-api.onrender.com"
 ]
 
 # Use environment variable if set, otherwise use default allowed origins
 cors_origins = os.getenv("CORS_ALLOW_ORIGINS")
 if cors_origins:
-    allowed_origins = cors_origins.split(",")
+    # Parse from env and merge with defaults to ensure Vercel is always included
+    env_origins = [origin.strip() for origin in cors_origins.split(",")]
+    allowed_origins = list(set(default_origins + env_origins))  # Remove duplicates
+else:
+    allowed_origins = default_origins
 
 print(f"[ML] CORS allowed origins: {allowed_origins}")
 
@@ -102,6 +146,9 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,
 )
+
+# Mount PDF uploads directory for serving images
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ------------------------------------------------------------------------------
 # Utilities
@@ -255,6 +302,13 @@ def _normalize_predictions(
             y = float(p["y"])
             w = float(p["width"])
             h = float(p["height"])
+            
+            # Calculate bbox corners (x, y is center in Roboflow format)
+            x1 = x - w / 2
+            y1 = y - h / 2
+            x2 = x + w / 2
+            y2 = y + h / 2
+            
             item.update(
                 {
                     "bbox": {"x": x, "y": y, "w": w, "h": h},
@@ -266,6 +320,21 @@ def _normalize_predictions(
                     },
                 }
             )
+            
+            # Convert bounding box to polygon mask (4 corners)
+            item["mask"] = [
+                {"x": x1, "y": y1},  # Top-left
+                {"x": x2, "y": y1},  # Top-right
+                {"x": x2, "y": y2},  # Bottom-right
+                {"x": x1, "y": y2},  # Bottom-left
+            ]
+            item["points"] = item["mask"]
+            item["points_norm"] = [
+                {"x": x1 / img_w, "y": y1 / img_h},
+                {"x": x2 / img_w, "y": y1 / img_h},
+                {"x": x2 / img_w, "y": y2 / img_h},
+                {"x": x1 / img_w, "y": y2 / img_h},
+            ]
             
             # Add display metrics for openings (doors/windows)
             if class_name and class_name.lower() in ["door", "window"]:
@@ -318,11 +387,34 @@ def _normalize_predictions(
                         "perimeter_ft": perimeter_ft,
                     })
                 elif class_name and "wall" in class_name.lower():
+                    # Normalize wall class names for frontend
+                    if "external" in class_name.lower() or class_name == "External_Wall":
+                        item["class"] = "exterior_wall"
+                        item["category"] = "exterior_wall"
+                    elif "internal" in class_name.lower() or class_name == "Internal_Wall":
+                        item["class"] = "interior_wall"
+                        item["category"] = "interior_wall"
+                    elif "exterior" in class_name.lower():
+                        item["class"] = "exterior_wall"
+                        item["category"] = "exterior_wall"
+                    elif "interior" in class_name.lower():
+                        item["class"] = "interior_wall"
+                        item["category"] = "interior_wall"
+                    else:
+                        # Default to interior wall if type not specified
+                        item["class"] = "interior_wall"
+                        item["category"] = "interior_wall"
+                    
                     # For walls: perimeter_ft (length) and area_sqft
                     # Perimeter represents the wall length (Linear Feet)
                     # Area can be used for wall surface area calculations
                     perimeter_ft = _convert_to_real_units(pixel_perimeter, scale, "ft")
                     area_sqft = _convert_to_real_units(pixel_area, scale, "sq ft")
+                    
+                    print(f"  - Wall type: {item['class']}")
+                    print(f"  - Converted length: {perimeter_ft:.2f} ft")
+                    print(f"  - Converted area: {area_sqft:.2f} sq ft")
+                    
                     item["display"].update({
                         "perimeter_ft": perimeter_ft,
                         "area_sqft": area_sqft,
@@ -360,7 +452,55 @@ def _infer_image(
     """
     client = _get_client(api_key)
     # You can pass extra params like `confidence`, `overlap`, `visualize`, etc. via kwargs.
-    return client.infer(image_path, model_id=model_id, **kwargs)
+    try:
+        return client.infer(image_path, model_id=model_id, **kwargs)
+    except TypeError as exc:
+        # Some versions of the Roboflow client don't accept confidence/overlap kwargs.
+        if kwargs and "unexpected keyword argument" in str(exc):
+            print(
+                f"[ML] Warning: inference client rejected extra kwargs {list(kwargs.keys())}; "
+                "retrying without them."
+            )
+            return client.infer(image_path, model_id=model_id)
+        raise
+
+def _classify_image(
+    image_path: str,
+    project_id: str,
+    version: str,
+    api_key: str,
+    workspace: str = None,
+) -> Dict[str, Any]:
+    """
+    Calls Roboflow Classification using InferenceHTTPClient with serverless endpoint.
+    Returns classification result with top class and confidence.
+    """
+    from inference_sdk import InferenceHTTPClient
+    
+    if not api_key:
+        raise ValueError("API key is required for classification")
+    
+    # Initialize client with serverless endpoint
+    client = InferenceHTTPClient(
+        api_url="https://serverless.roboflow.com",
+        api_key=api_key
+    )
+    
+    # Model ID format: project_id/version
+    model_id = f"{project_id}/{version}"
+    
+    # Run inference
+    result = client.infer(image_path, model_id=model_id)
+    
+    return result
+
+# Initialize PDF processor with classification function (now that _classify_image is defined)
+if PAGE_API_KEY and PAGE_PROJECT and PAGE_VERSION:
+    pdf_processor = PDFProcessor(classify_fn=_classify_image)
+    print(f"[ML] PDF Processor initialized with Roboflow classification: {PAGE_PROJECT}/{PAGE_VERSION}")
+else:
+    pdf_processor = PDFProcessor()
+    print("[ML] PDF Processor initialized without classification (missing config)")
 
 def _calculate_iou(box1: Dict[str, float], box2: Dict[str, float]) -> float:
     """
@@ -471,6 +611,106 @@ def _ensemble_door_window_predictions(
     print(f"[ML] Ensemble: Combined total = {len(combined)} detections")
     return combined
 
+def _run_custom_room_model(
+    image_path: str,
+    img_w: int,
+    img_h: int,
+    confidence: float = 0.3,
+    scale: Optional[float] = None
+) -> List[Dict[str, Any]]:
+    """
+    Run custom YOLO model for room detection and convert to standard format.
+    
+    Args:
+        image_path: Path to image file
+        img_w: Image width
+        img_h: Image height
+        confidence: Confidence threshold
+        scale: Scale factor for real-world units
+    
+    Returns:
+        List of predictions in standard format
+    """
+    if not CUSTOM_ROOM_MODEL:
+        return []
+    
+    try:
+        # Run inference
+        results = CUSTOM_ROOM_MODEL(image_path, conf=confidence, iou=0.5)
+        
+        predictions = []
+        for result in results:
+            for i, box in enumerate(result.boxes):
+                # Convert box to [x1, y1, x2, y2, conf, cls]
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                conf = box.conf.item()
+                cls_id = int(box.cls.item())
+                cls_name = result.names[cls_id]
+                
+                # Calculate center, width, height
+                w = x2 - x1
+                h = y2 - y1
+                x = x1 + w / 2
+                y = y1 + h / 2
+                
+                # Convert to percentage of image dimensions
+                x_pct = x / img_w
+                y_pct = y / img_h
+                w_pct = w / img_w
+                h_pct = h / img_h
+                
+                # Convert to absolute coordinates
+                x_abs = x_pct * img_w
+                y_abs = y_pct * img_h
+                w_abs = w_pct * img_w
+                h_abs = h_pct * img_h
+                
+                # Create prediction in Roboflow format
+                pred = {
+                    "x": x_abs,
+                    "y": y_abs,
+                    "width": w_abs,
+                    "height": h_abs,
+                    "confidence": conf,
+                    "class": cls_name,
+                    "class_id": cls_id,
+                }
+                
+                # Add points for polygon (as a rectangle for now)
+                points = [
+                    {"x": x1, "y": y1},
+                    {"x": x2, "y": y1},
+                    {"x": x2, "y": y2},
+                    {"x": x1, "y": y2}
+                ]
+                
+                # Calculate area and perimeter if scale is provided
+                if scale is not None:
+                    area_px = w_abs * h_abs
+                    perimeter_px = 2 * (w_abs + h_abs)
+                    
+                    pred["area_px2"] = area_px
+                    pred["perimeter_px"] = perimeter_px
+                    
+                    # Convert to real-world units
+                    area_sqft = _convert_to_real_units(area_px, scale, "sq ft")
+                    perimeter_ft = _convert_to_real_units(perimeter_px, scale, "ft")
+                    
+                    pred["display"] = {
+                        "area_sqft": area_sqft,
+                        "perimeter_ft": perimeter_ft
+                    }
+                
+                pred["points"] = points
+                predictions.append(pred)
+        
+        return predictions
+        
+    except Exception as e:
+        print(f"[ERROR] Error running custom room model: {e}")
+        return []
+
+
 def _run_custom_yolo_model(
     image_path: str,
     img_w: int,
@@ -528,6 +768,14 @@ def _run_custom_yolo_model(
             if hasattr(result, 'names') and class_id in result.names:
                 class_name = result.names[class_id].lower()
             
+            # Convert bounding box to polygon mask (4 corners)
+            mask_points = [
+                {"x": float(x1), "y": float(y1)},  # Top-left
+                {"x": float(x2), "y": float(y1)},  # Top-right
+                {"x": float(x2), "y": float(y2)},  # Bottom-right
+                {"x": float(x1), "y": float(y2)},  # Bottom-left
+            ]
+            
             pred = {
                 "id": str(uuid.uuid4()),
                 "class": class_name,
@@ -546,7 +794,14 @@ def _run_custom_yolo_model(
                     "h": float(height / img_h) if img_h else 0.0,
                 },
                 "metrics": {},
-                "mask": [],
+                "mask": mask_points,
+                "points": mask_points,
+                "points_norm": [
+                    {"x": float(x1 / img_w), "y": float(y1 / img_h)},
+                    {"x": float(x2 / img_w), "y": float(y1 / img_h)},
+                    {"x": float(x2 / img_w), "y": float(y2 / img_h)},
+                    {"x": float(x1 / img_w), "y": float(y2 / img_h)},
+                ],
                 "display": {
                     "width": _convert_to_real_units(width, scale, "ft"),
                     "height": _convert_to_real_units(height, scale, "ft"),
@@ -609,6 +864,24 @@ def config() -> Dict[str, Any]:
         }
     }
 
+def convert_numpy_types(obj):
+    """Recursively convert numpy types to native Python types for JSON serialization."""
+    import numpy as np
+    
+    if isinstance(obj, (np.bool_, np.bool)):
+        return bool(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_numpy_types(item) for item in obj]
+    return obj
+
 @app.post("/analyze", response_class=JSONResponse)
 async def analyze(
     file: UploadFile = File(..., description="Image file (plans/photo)"),
@@ -625,6 +898,9 @@ async def analyze(
     - walls: Uses WALL_MODEL (detects only walls)
     - doors/windows: Uses DOORWINDOW_MODEL (filters to only doors and windows)
     """
+    import time
+    request_start = time.time()
+    print(f"[ML] === Analysis request started at {time.strftime('%H:%M:%S')} ===")
     try:
         # Parse types parameter (frontend sends JSON array)
         types_to_analyze = []
@@ -726,7 +1002,21 @@ async def analyze(
             else:
                 try:
                     raw = _infer_image(temp_path, model_id=ROOM_MODEL_ID, api_key=ROOM_API_KEY, **infer_kwargs)
-                    results["predictions"]["rooms"] = _normalize_predictions(raw, img_w, img_h, scale=scale)
+                    roboflow_rooms = _normalize_predictions(raw, img_w, img_h, scale=scale)
+                    
+                    # Use custom room model as fallback only if Roboflow returns no results
+                    if not roboflow_rooms and CUSTOM_ROOM_MODEL:
+                        print("[ML] Roboflow returned no rooms, using custom room model as fallback")
+                        roboflow_rooms = _run_custom_room_model(
+                            temp_path,
+                            img_w,
+                            img_h,
+                            confidence=confidence or 0.3,
+                            scale=scale
+                        )
+                        print(f"[ML] Custom room model fallback detected {len(roboflow_rooms)} rooms")
+                    
+                    results["predictions"]["rooms"] = roboflow_rooms
                 except Exception as e:
                     errors["rooms"] = str(e)
 
@@ -783,6 +1073,13 @@ async def analyze(
         if errors:
             results["errors"] = errors
 
+        total_time = time.time() - request_start
+        print(f"[ML] === Analysis completed in {total_time:.2f}s ===")
+        results["processing_time"] = f"{total_time:.2f}s"
+        
+        # Convert numpy types to native Python types for JSON serialization
+        results = convert_numpy_types(results)
+        
         return results
 
     except HTTPException:
@@ -799,4 +1096,319 @@ def head_analyze():
 @app.options("/analyze", response_class=PlainTextResponse)
 def options_analyze():
     """Handle CORS preflight requests for /analyze endpoint."""
+    return PlainTextResponse("ok", status_code=200)
+
+
+# ------------------------------------------------------------------------------
+# PDF Processing Endpoints
+# ------------------------------------------------------------------------------
+
+@app.get("/test")
+async def test_endpoint():
+    """Test endpoint to verify ML service is running"""
+    print("[ML] 🧪 Test endpoint called!")
+    return {"status": "ok", "message": "ML service is running"}
+
+
+@app.options("/upload-pdf", response_class=PlainTextResponse)
+def options_upload_pdf():
+    """Handle CORS preflight requests for /upload-pdf endpoint."""
+    return PlainTextResponse("ok", status_code=200)
+
+@app.post("/upload-pdf", response_class=JSONResponse)
+async def upload_pdf(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """
+    Upload and process a multi-page PDF.
+    Returns page classifications and thumbnails.
+    """
+    # Force UTF-8 encoding for stdout
+    import sys
+    import codecs
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    
+    # Write to log file to debug
+    try:
+        with open("upload_log.txt", "a", encoding='utf-8') as f:
+            f.write(f"\n{'='*80}\n")
+            f.write(f"PDF UPLOAD RECEIVED at {datetime.now()}\n")
+            f.write(f"Filename: {file.filename}\n")
+            f.write(f"{'='*80}\n")
+    except Exception as e:
+        print(f"[WARNING] Failed to write to log file: {e}")
+    
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file type. Please upload a PDF file."
+            )
+        
+        # Generate unique ID for this upload
+        upload_id = str(uuid.uuid4())
+        upload_dir = os.path.join(PDF_UPLOAD_DIR, upload_id)
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save uploaded PDF
+        pdf_path = os.path.join(upload_dir, file.filename)
+        try:
+            # Read the file content first
+            file_content = await file.read()
+            # Then write it to disk
+            with open(pdf_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            error_msg = f"Error saving PDF file: {str(e)}"
+            print(f"[ML] {error_msg}")
+            raise HTTPException(status_code=500, detail=error_msg)
+        
+        print("\n" + "="*80)
+        print("[ML] PDF UPLOAD RECEIVED")
+        print("="*80)
+        print(f"[ML] Filename: {file.filename}")
+        print(f"[ML] Upload ID: {upload_id}")
+        print(f"[ML] PDF Path: {pdf_path}")
+        print(f"[ML] Output Dir: {upload_dir}")
+        print("[ML] Starting PDF processing...")
+        print("="*80 + "\n")
+        
+        # Process PDF - extract pages and classify
+        result = pdf_processor.process_pdf(pdf_path, upload_dir)
+        
+        # Add upload ID to result
+        result['upload_id'] = upload_id
+        
+        print("\n" + "="*80)
+        print("[ML] PDF PROCESSING COMPLETE")
+        print("="*80)
+        print(f"[ML] Total pages: {result['total_pages']}")
+        analyzable_count = sum(1 for p in result['pages'] if p['analyzable'])
+        print(f"[ML] Analyzable pages: {analyzable_count}/{result['total_pages']}")
+        print("="*80 + "\n")
+        
+        # Convert numpy types to native Python types for JSON serialization
+        result = convert_numpy_types(result)
+        
+        # Convert file paths to HTTP URLs for frontend access
+        ml_base_url = os.getenv("ML_BASE_URL", "http://127.0.0.1:8001")
+        for page in result['pages']:
+            if 'image_path' in page and page['image_path']:
+                # Convert absolute path to relative URL
+                # e.g., /opt/render/project/src/uploads/pdfs/uuid/page_1.jpg 
+                # becomes http://127.0.0.1:8001/uploads/pdfs/uuid/page_1.jpg
+                rel_path = page['image_path'].replace(UPLOAD_DIR, '').lstrip('/')
+                page['image_path'] = f"{ml_base_url}/uploads/{rel_path}"
+                print(f"[ML] Converted image path to URL: {page['image_path']}")
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e).encode('ascii', 'replace').decode('ascii')
+        print(f"[ML] Error processing PDF: {error_msg}")
+        # Ensure error message is clean and safe
+        safe_error = error_msg.replace('\n', ' ').replace('\r', ' ')[:500]  # Limit length
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process PDF: {safe_error}"
+        )
+
+
+@app.options("/analyze-pages", response_class=PlainTextResponse)
+def options_analyze_pages():
+    """Handle CORS preflight requests for /analyze-pages endpoint."""
+    return PlainTextResponse("ok", status_code=200)
+
+@app.post("/analyze-pages", response_class=JSONResponse)
+async def analyze_pages(
+    upload_id: str = Form(...),
+    page_numbers: str = Form(...),  # JSON array of page numbers
+    takeoff_types: str = Form(...),  # JSON array of takeoff types
+    scale: Optional[float] = Form(None),
+    confidence: Optional[float] = Form(None),
+) -> Dict[str, Any]:
+    """
+    Analyze selected pages from an uploaded PDF.
+    
+    Args:
+        upload_id: UUID of the uploaded PDF
+        page_numbers: JSON array of page numbers to analyze
+        takeoff_types: JSON array of takeoff types (rooms, walls, doors, windows)
+        scale: Scale factor for measurements
+        confidence: Confidence threshold for detections
+    """
+    try:
+        # Parse parameters
+        try:
+            pages_to_analyze = json.loads(page_numbers)
+            types_list = json.loads(takeoff_types)
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON in parameters: {str(e)}"
+            )
+        
+        # Validate upload directory exists
+        upload_dir = os.path.join(PDF_UPLOAD_DIR, upload_id)
+        if not os.path.exists(upload_dir):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Upload ID not found: {upload_id}"
+            )
+        
+        print(f"[ML] Analyzing {len(pages_to_analyze)} pages from upload {upload_id}")
+        
+        results = []
+        
+        for page_num in pages_to_analyze:
+            image_path = os.path.join(upload_dir, f'page_{page_num}.jpg')
+            
+            if not os.path.exists(image_path):
+                results.append({
+                    'page_number': page_num,
+                    'success': False,
+                    'error': f'Page {page_num} not found'
+                })
+                continue
+            
+            try:
+                # Get image dimensions
+                with Image.open(image_path) as img:
+                    img_w, img_h = img.size
+                
+                # Determine which models to run
+                detect_rooms = any(t in types_list for t in ["rooms", "floors", "flooring"])
+                detect_walls = "walls" in types_list
+                detect_doors_windows = any(t in types_list for t in ["doors", "windows", "columns", "openings"])
+                
+                # Inference kwargs
+                infer_kwargs: Dict[str, Any] = {}
+                if confidence is not None:
+                    infer_kwargs["confidence"] = confidence
+                
+                page_predictions = {}
+                page_errors = {}
+                
+                # Run room detection if requested
+                if detect_rooms:
+                    room_predictions = []
+                    
+                    # 1. Run Roboflow room detection
+                    if ROOM_MODEL_ID:
+                        try:
+                            raw = _infer_image(image_path, model_id=ROOM_MODEL_ID, api_key=ROOM_API_KEY, **infer_kwargs)
+                            roboflow_rooms = _normalize_predictions(raw, img_w, img_h, scale=scale)
+                            room_predictions.extend(roboflow_rooms)
+                            print(f"[ML] Roboflow room detection found {len(roboflow_rooms)} rooms")
+                        except Exception as e:
+                            page_errors["rooms_roboflow"] = str(e)
+                    
+                    # 2. Run custom room detection model if available
+                    if CUSTOM_ROOM_MODEL:
+                        try:
+                            custom_rooms = _run_custom_room_model(image_path, img_w, img_h, 
+                                                              confidence=confidence, scale=scale)
+                            # Convert to normalized format
+                            custom_rooms_normalized = _normalize_predictions(
+                                {"predictions": custom_rooms}, 
+                                img_w, 
+                                img_h, 
+                                scale=scale
+                            )
+                            room_predictions.extend(custom_rooms_normalized)
+                            print(f"[ML] Custom room detection found {len(custom_rooms_normalized)} rooms")
+                        except Exception as e:
+                            page_errors["rooms_custom"] = str(e)
+                    
+                    # 3. Apply ensemble method (simple merge for now, can be improved with NMS)
+                    if room_predictions:
+                        # For now, just take unique predictions based on class and position
+                        # In a production environment, you might want to implement NMS here
+                        unique_rooms = {}
+                        for room in room_predictions:
+                            # Create a unique key based on class and position
+                            key = f"{room.get('class', 'room')}_{room.get('x', 0):.0f}_{room.get('y', 0):.0f}"
+                            # Keep the one with higher confidence if duplicate
+                            if key not in unique_rooms or room.get('confidence', 0) > unique_rooms[key].get('confidence', 0):
+                                unique_rooms[key] = room
+                        
+                        page_predictions["rooms"] = list(unique_rooms.values())
+                        print(f"[ML] Combined room detection found {len(unique_rooms)} unique rooms")
+                
+                # Run wall detection
+                if detect_walls and WALL_MODEL_ID:
+                    try:
+                        raw = _infer_image(image_path, model_id=WALL_MODEL_ID, api_key=WALL_API_KEY, **infer_kwargs)
+                        page_predictions["walls"] = _normalize_predictions(raw, img_w, img_h, scale=scale)
+                    except Exception as e:
+                        page_errors["walls"] = str(e)
+                
+                # Run door/window detection
+                if detect_doors_windows and DOORWINDOW_MODEL_ID:
+                    try:
+                        raw = _infer_image(image_path, model_id=DOORWINDOW_MODEL_ID, api_key=DOORWINDOW_API_KEY, **infer_kwargs)
+                        roboflow_preds = _normalize_predictions(raw, img_w, img_h, filter_classes=["door", "window", "Door", "Window"], scale=scale)
+                        
+                        # Ensemble learning if custom model available
+                        if CUSTOM_WINDOW_MODEL:
+                            custom_preds = _run_custom_yolo_model(image_path, img_w, img_h, confidence=confidence or 0.3, scale=scale)
+                            door_window_preds = _ensemble_door_window_predictions(roboflow_preds, custom_preds, iou_threshold=0.4)
+                        else:
+                            door_window_preds = roboflow_preds
+                        
+                        page_predictions["openings"] = door_window_preds
+                    except Exception as e:
+                        page_errors["openings"] = str(e)
+                
+                results.append({
+                    'page_number': page_num,
+                    'success': True,
+                    'image': {'width': img_w, 'height': img_h},
+                    'predictions': page_predictions,
+                    'errors': page_errors if page_errors else None
+                })
+                
+                print(f"[ML] Page {page_num} analyzed successfully")
+                
+            except Exception as e:
+                print(f"[ML] Error analyzing page {page_num}: {str(e)}")
+                results.append({
+                    'page_number': page_num,
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return {
+            "success": True,
+            "upload_id": upload_id,
+            "results": results
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ML] Error in analyze_pages: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze pages: {str(e)}"
+        )
+
+
+@app.options("/upload-pdf", response_class=PlainTextResponse)
+def options_upload_pdf():
+    """Handle CORS preflight for PDF upload."""
+    return PlainTextResponse("ok", status_code=200)
+
+
+@app.options("/analyze-pages", response_class=PlainTextResponse)
+def options_analyze_pages():
+    """Handle CORS preflight for page analysis."""
     return PlainTextResponse("ok", status_code=200)

@@ -201,6 +201,65 @@ export function smartSimplify(
 }
 
 /**
+ * Sanitize polygon points by removing duplicates, trimming closing duplicates,
+ * and optionally applying smart simplification when point counts get large.
+ */
+export function sanitizePolygonPoints(
+  points: Point[],
+  options: {
+    minPoints?: number
+    minVertexDistance?: number
+    closureDistance?: number
+    simplifyAbove?: number
+    douglasPeuckerTolerance?: number
+    clusterThreshold?: number
+    angleThreshold?: number
+  } = {}
+): Point[] {
+  if (!points?.length) return []
+
+  const {
+    minPoints = 3,
+    minVertexDistance = 1.5,
+    closureDistance = minVertexDistance,
+    simplifyAbove = 60,
+    douglasPeuckerTolerance = 1.5,
+    clusterThreshold = Math.max(minVertexDistance * 2, 4),
+    angleThreshold = 6,
+  } = options
+
+  const deduped: Point[] = []
+  for (const pt of points) {
+    const last = deduped[deduped.length - 1]
+    if (!last || pointDistance(last, pt) > minVertexDistance) {
+      deduped.push(pt)
+    }
+  }
+
+  if (deduped.length > 1 && pointDistance(deduped[0], deduped[deduped.length - 1]) <= closureDistance) {
+    deduped.pop()
+  }
+
+  if (deduped.length <= minPoints) {
+    return deduped.length >= minPoints ? deduped : points.slice(0, Math.max(points.length, minPoints))
+  }
+
+  const shouldSimplify = deduped.length > simplifyAbove
+  if (!shouldSimplify) {
+    return deduped
+  }
+
+  const simplified = smartSimplify(deduped, {
+    douglasPeuckerTolerance,
+    clusterThreshold,
+    angleThreshold,
+    minPoints,
+  })
+
+  return simplified.length >= minPoints ? simplified : deduped
+}
+
+/**
  * Calculate the optimal position for a dialog/toolbar relative to a polygon
  * @param points Polygon points
  * @param dialogSize Size of the dialog box [width, height]

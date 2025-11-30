@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { createApiUrl } from "@/config/api";
-import { CloudUpload, X, Upload } from "lucide-react";
+import { CloudUpload, X, Upload, Check } from "lucide-react";
 
 interface UploadZoneProps {
   projectId: string;
@@ -104,7 +104,16 @@ export default function UploadZone({ projectId, onUploadComplete, onCancel }: Up
     }
 
     setSelectedFile(file);
-    setDrawingName(file.name.replace(/\.[^/.]+$/, ""));
+    const name = file.name.replace(/\.[^/.]+$/, "");
+    setDrawingName(name);
+    
+    // Auto-upload the file
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("name", name);
+    formData.append("scale", scale);
+    
+    uploadMutation.mutate(formData);
   };
 
   const handleUpload = () => {
@@ -120,97 +129,52 @@ export default function UploadZone({ projectId, onUploadComplete, onCancel }: Up
 
   return (
     <div className="space-y-4">
-      {!selectedFile ? (
-        <div
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-            dragActive 
-              ? "border-blueprint-500 bg-blueprint-50" 
-              : "border-slate-300 hover:border-blueprint-400"
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <CloudUpload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-600 mb-1">
-            Drop files here or click to browse
-          </p>
-          <p className="text-xs text-slate-500">PDF, PNG, JPG up to 50MB</p>
-          
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept=".pdf,.png,.jpg,.jpeg"
-            onChange={handleFileSelect}
-          />
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="bg-slate-50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Upload className="w-5 h-5 text-blueprint-600" />
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{selectedFile.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
+      <div
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          dragActive 
+            ? "border-blueprint-500 bg-blueprint-50" 
+            : "border-slate-300 hover:border-blueprint-400"
+        } ${uploadMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => !uploadMutation.isPending && fileInputRef.current?.click()}
+      >
+        {uploadMutation.isPending ? (
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <div className="w-8 h-8 border-4 border-blueprint-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-medium text-slate-600">Uploading...</p>
+          </div>
+        ) : selectedFile ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <Check className="w-5 h-5 text-green-600" />
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedFile(null)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <p className="text-sm font-medium text-slate-700">Uploaded: {selectedFile.name}</p>
             </div>
+            <p className="text-xs text-slate-500">Processing may take a moment...</p>
           </div>
-
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="drawing-name">Drawing Name</Label>
-              <Input
-                id="drawing-name"
-                value={drawingName}
-                onChange={(e) => setDrawingName(e.target.value)}
-                placeholder="Enter drawing name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="scale">Scale</Label>
-              <select
-                id="scale"
-                value={scale}
-                onChange={(e) => setScale(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-              >
-                <option value="1/4&quot; = 1'">1/4" = 1'</option>
-                <option value="1/8&quot; = 1'">1/8" = 1'</option>
-                <option value="1/2&quot; = 1'">1/2" = 1'</option>
-                <option value="1&quot; = 1'">1" = 1'</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex space-x-2">
-            <Button
-              onClick={handleUpload}
-              disabled={!drawingName.trim() || uploadMutation.isPending}
-              className="flex-1 bg-blueprint-600 hover:bg-blueprint-700"
-            >
-              {uploadMutation.isPending ? "Uploading..." : "Upload Drawing"}
-            </Button>
-            <Button variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <CloudUpload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-600 mb-1">
+              Drop files here or click to browse
+            </p>
+            <p className="text-xs text-slate-500">PDF, PNG, JPG up to 50MB</p>
+          </>
+        )}
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.png,.jpg,.jpeg"
+          onChange={handleFileSelect}
+          disabled={uploadMutation.isPending}
+        />
+      </div>
     </div>
   );
 }

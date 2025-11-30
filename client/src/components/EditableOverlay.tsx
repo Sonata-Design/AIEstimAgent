@@ -273,8 +273,7 @@ export default function EditableOverlay({
   }
 
   const handlePolygonClick = (e: any, d: Detection) => {
-    // Allow polygon clicks even in measurement mode (just don't add measurement points)
-    // This allows users to select and edit masks while measure tool is active
+    if (measurementMode) return
     
     const stage = stageRef.current
     const pos = stage?.getPointerPosition()
@@ -325,8 +324,7 @@ export default function EditableOverlay({
 
   // Handle canvas click for measurements
   const handleCanvasClick = (e: any) => {
-    // Only handle measurement clicks if clicking on the stage itself (not on a polygon)
-    if (measurementMode && onMeasurementClick && e.target === e.target.getStage()) {
+    if (measurementMode && onMeasurementClick) {
       const stage = e.target.getStage()
       if (!stage) return
       
@@ -336,7 +334,6 @@ export default function EditableOverlay({
       onMeasurementClick([point.x, point.y])
       e.cancelBubble = true
     }
-    // If clicking on a polygon, let it handle the click (don't cancel bubble)
   }
 
   // Handle double-click for completing area measurements

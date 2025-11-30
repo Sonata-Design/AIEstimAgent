@@ -6,9 +6,11 @@ export const DETECTION_COLORS = {
   room: "#10B981",      // Emerald-500 - Bright green, highly visible
   rooms: "#10B981",
   
-  // Walls - Blue tones (professional, clear contrast)
-  wall: "#3B82F6",      // Blue-500 - Professional, high contrast
+  // Walls - Different colors for exterior and interior walls
+  wall: "#3B82F6",      // Blue-500 - Default wall color (fallback)
   walls: "#3B82F6",
+  exterior_wall: "#6B21A8", // Blue-600 - Darker blue for exterior walls
+  interior_wall: "#3B82F6", // Blue-400 - Lighter blue for interior walls
   
   // Doors - Yellow tones (warm, attention-grabbing)
   door: "#EAB308",      // Yellow-500 - Bright yellow, visible on white
@@ -52,14 +54,28 @@ export function getColorWithOpacity(color: string, opacity: number): string {
 // Get color for a class name
 export function getDetectionColor(className: string | undefined): string {
   if (!className) return DETECTION_COLORS.other;
-  const key = className.toLowerCase() as keyof typeof DETECTION_COLORS;
+  
+  // Convert to lowercase and replace spaces with underscores for matching
+  const normalized = className.toLowerCase().replace(/\s+/g, '_');
+  
+  // Check for wall types first
+  if (normalized.includes('exterior_wall') || normalized === 'exterior wall') {
+    return DETECTION_COLORS.exterior_wall;
+  }
+  if (normalized.includes('interior_wall') || normalized === 'interior wall') {
+    return DETECTION_COLORS.interior_wall;
+  }
+  
+  // Check other class names
+  const key = normalized as keyof typeof DETECTION_COLORS;
   return DETECTION_COLORS[key] || DETECTION_COLORS.other;
 }
 
 // Color legend for UI display
 export const COLOR_LEGEND = [
   { label: 'Rooms', color: DETECTION_COLORS.room, description: 'Green' },
-  { label: 'Walls', color: DETECTION_COLORS.wall, description: 'Blue' },
+  { label: 'Exterior Walls', color: DETECTION_COLORS.exterior_wall, description: 'Dark Blue' },
+  { label: 'Interior Walls', color: DETECTION_COLORS.interior_wall, description: 'Light Blue' },
   { label: 'Doors', color: DETECTION_COLORS.door, description: 'Yellow' },
   { label: 'Windows', color: DETECTION_COLORS.window, description: 'Orange' },
 ] as const;

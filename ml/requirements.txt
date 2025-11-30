@@ -12,3 +12,10 @@ pillow==11.0.0
 
 requests==2.32.3
 ultralytics>=8.0.0
+
+# PDF Processing
+pdf2image==1.16.3
+PyPDF2==3.0.1
+
+# OCR for page classification
+pytesseract==0.3.10

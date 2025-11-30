@@ -128,8 +128,8 @@ export default function Projects() {
         case "client":
           return (a.client || "").localeCompare(b.client || "");
         case "created":
-          const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-          const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+          const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
           return dateB.getTime() - dateA.getTime();
         case "status":
           return a.status.localeCompare(b.status);
@@ -373,16 +373,16 @@ export default function Projects() {
         )}
       </div>
 
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Building className="w-8 h-8 text-primary" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
-                  <p className="text-2xl font-bold text-foreground">{projects.length}</p>
+            <CardContent className="p-3 sm:p-4 md:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Building className="w-6 sm:w-8 h-6 sm:h-8 text-primary flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Projects</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{projects.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -449,7 +449,7 @@ export default function Projects() {
 
         {/* Projects Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
@@ -460,7 +460,7 @@ export default function Projects() {
             ))}
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-8 sm:py-12">
             <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No projects found</h3>
             <p className="text-muted-foreground mb-4">
@@ -481,7 +481,7 @@ export default function Projects() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {filteredProjects.map((project) => {
               const health = getProjectHealth(project);
               const HealthIcon = health.icon;
@@ -578,7 +578,7 @@ export default function Projects() {
                       
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4 mr-2" />
-                        {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'No date'}
+                        {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'No date'}
                       </div>
                       
                       <div className="flex items-center justify-between">

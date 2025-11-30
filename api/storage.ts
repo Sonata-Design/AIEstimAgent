@@ -4,19 +4,20 @@ import {
   projects, 
   drawings, 
   takeoffs, 
-  materialCosts,
-  savedAnalyses,
-  tradeClasses,
-  productSkus,
-  projectPricing,
-  estimateTemplates,
-  regionalCostDatabase,
+  material_costs,
+  saved_analyses,
+  trade_classes,
+  product_skus,
+  project_pricing,
+  estimate_templates,
+  regional_cost_database,
   suppliers,
-  materialPricing,
-  changeOrders,
-  profitMarginSettings,
-  costHistory,
-  costEscalation
+  material_pricing,
+  change_orders,
+  profit_margin_settings,
+  cost_history,
+  cost_escalation,
+  takeoff_history
 } from "../shared/schema";
 import { 
   type Project, type InsertProject, 
@@ -157,7 +158,8 @@ export class DatabaseStorage implements IStorage {
 
   constructor() {
     // Initialize with sample data asynchronously
-    this.initializeSampleData().catch(console.error);
+    // DISABLED: Causes issues with Neon serverless in production
+    // this.initializeSampleData().catch(console.error);
   }
 
   private async initializeSampleData() {
@@ -186,36 +188,36 @@ export class DatabaseStorage implements IStorage {
     const sampleDrawings = [
       {
         id: "draw-1",
-        projectId: sampleProject.id,
+        project_id: sampleProject.id,
         name: "Floor Plan - Level 1",
         filename: "floor-plan-l1.pdf",
-        fileUrl: "/uploads/floor-plan-l1.pdf",
-        fileType: "application/pdf",
+        file_url: "/uploads/floor-plan-l1.pdf",
+        file_type: "application/pdf",
         status: "complete",
         scale: "1/4\" = 1'",
-        aiProcessed: true,
+        is_ai_processed: true,
       },
       {
         id: "draw-2",
-        projectId: sampleProject.id,
+        project_id: sampleProject.id,
         name: "Electrical Plan - Level 1",
         filename: "electrical-l1.pdf",
-        fileUrl: "/uploads/electrical-l1.pdf",
-        fileType: "application/pdf",
+        file_url: "/uploads/electrical-l1.pdf",
+        file_type: "application/pdf",
         status: "complete",
         scale: "1/4\" = 1'",
-        aiProcessed: true,
+        is_ai_processed: true,
       },
       {
         id: "draw-3",
-        projectId: sampleProject.id,
+        project_id: sampleProject.id,
         name: "HVAC Layout - Level 1",
         filename: "hvac-l1.pdf",
-        fileUrl: "/uploads/hvac-l1.pdf",
-        fileType: "application/pdf",
+        file_url: "/uploads/hvac-l1.pdf",
+        file_type: "application/pdf",
         status: "processing",
         scale: "1/4\" = 1'",
-        aiProcessed: false,
+        is_ai_processed: false,
       },
     ];
     
@@ -225,94 +227,94 @@ export class DatabaseStorage implements IStorage {
     await db.insert(takeoffs).values([
       {
         id: "takeoff-1",
-        drawingId: "draw-1",
-        elementType: "doors",
-        elementName: "Interior Door - 36\" x 80\"",
-        itemType: "Interior Door",
+        drawing_id: "draw-1",
+        element_type: "doors",
+        element_name: "Interior Door - 36\" x 80\"",
+        item_type: "Interior Door",
         quantity: 12,
         width: 36,
         height: 80,
         unit: "each",
         coordinates: { x: 100, y: 200 },
-        detectedByAi: true,
-        costPerUnit: 250,
-        totalCost: 3000,
+        is_detected_by_ai: true,
+        cost_per_unit: 250,
+        total_cost: 3000,
       },
       {
         id: "takeoff-2",
-        drawingId: "draw-1",
-        elementType: "windows",
-        elementName: "Double Hung Window - 48\" x 60\"",
-        itemType: "Double Hung Window",
+        drawing_id: "draw-1",
+        element_type: "windows",
+        element_name: "Double Hung Window - 48\" x 60\"",
+        item_type: "Double Hung Window",
         quantity: 8,
         width: 48,
         height: 60,
         unit: "each",
         coordinates: { x: 300, y: 150 },
-        detectedByAi: true,
-        costPerUnit: 450,
-        totalCost: 3600,
+        is_detected_by_ai: true,
+        cost_per_unit: 450,
+        total_cost: 3600,
       },
       {
         id: "takeoff-3",
-        drawingId: "draw-1",
-        elementType: "flooring",
-        elementName: "Luxury Vinyl Plank",
-        itemType: "Vinyl Flooring",
+        drawing_id: "draw-1",
+        element_type: "flooring",
+        element_name: "Luxury Vinyl Plank",
+        item_type: "Vinyl Flooring",
         quantity: 2400,
         area: 2400,
         unit: "sq ft",
-        detectedByAi: true,
-        costPerUnit: 4.5,
-        totalCost: 10800,
+        is_detected_by_ai: true,
+        cost_per_unit: 4.5,
+        total_cost: 10800,
       },
       {
         id: "takeoff-4",
-        drawingId: "draw-1",
-        elementType: "electrical",
-        elementName: "Electrical Outlets",
-        itemType: "Electrical Outlet",
+        drawing_id: "draw-1",
+        element_type: "electrical",
+        element_name: "Electrical Outlets",
+        item_type: "Electrical Outlet",
         quantity: 24,
         unit: "each",
-        detectedByAi: true,
-        costPerUnit: 85,
-        totalCost: 2040,
+        is_detected_by_ai: true,
+        cost_per_unit: 85,
+        total_cost: 2040,
       }
     ]);
 
     // Sample material costs
-    await db.insert(materialCosts).values([
+    await db.insert(material_costs).values([
       {
         id: "cost-1",
         category: "doors",
-        itemName: "Interior Door (36\")",
+        item_name: "Interior Door (36\")",
         unit: "each",
-        materialCost: 180,
-        laborCost: 150,
+        material_cost: 180,
+        labor_cost: 150,
         description: "Standard hollow core interior door with frame",
       },
       {
         id: "cost-2",
         category: "windows",
-        itemName: "Double Hung Window (3'x4')",
+        item_name: "Double Hung Window (3'x4')",
         unit: "each",
-        materialCost: 350,
-        laborCost: 200,
+        material_cost: 350,
+        labor_cost: 200,
         description: "Standard double hung window with installation",
       },
       {
         id: "cost-3",
         category: "flooring",
-        itemName: "Hardwood Flooring",
+        item_name: "Hardwood Flooring",
         unit: "sq ft",
-        materialCost: 8.5,
-        laborCost: 6.0,
+        material_cost: 8.5,
+        labor_cost: 6.0,
         description: "Oak hardwood flooring with installation",
       },
     ]);
 
     // Sample trade classes
-    await db.insert(tradeClasses).values([
+    await db.insert(trade_classes).values([
       { id: "trade-1", name: "General Construction", code: "GC", description: "General construction and framing" },
       { id: "trade-2", name: "Electrical", code: "ELEC", description: "Electrical systems and components" },
       { id: "trade-3", name: "Plumbing", code: "PLUMB", description: "Plumbing systems and fixtures" },
@@ -324,38 +326,38 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     // Sample product SKUs
-    await db.insert(productSkus).values([
+    await db.insert(product_skus).values([
       // General Construction
-      { id: "sku-1", sku: "LUM-2X4-8", name: "2x4x8 Lumber", tradeClassId: "trade-1", category: "Lumber", unit: "piece", materialCost: 6.50, laborCost: 2.00, description: "Standard 2x4x8 construction lumber" },
-      { id: "sku-2", sku: "LUM-2X6-8", name: "2x6x8 Lumber", tradeClassId: "trade-1", category: "Lumber", unit: "piece", materialCost: 9.75, laborCost: 2.50, description: "Standard 2x6x8 construction lumber" },
-      { id: "sku-3", sku: "PLY-3/4-4X8", name: "3/4\" Plywood 4x8", tradeClassId: "trade-1", category: "Sheathing", unit: "sheet", materialCost: 58.00, laborCost: 15.00, description: "3/4 inch plywood sheet 4x8 feet" },
+      { id: "sku-1", sku: "LUM-2X4-8", name: "2x4x8 Lumber", trade_class_id: "trade-1", category: "Lumber", unit: "piece", material_cost: 6.50, labor_cost: 2.00, description: "Standard 2x4x8 construction lumber" },
+      { id: "sku-2", sku: "LUM-2X6-8", name: "2x6x8 Lumber", trade_class_id: "trade-1", category: "Lumber", unit: "piece", material_cost: 9.75, labor_cost: 2.50, description: "Standard 2x6x8 construction lumber" },
+      { id: "sku-3", sku: "PLY-3/4-4X8", name: "3/4\" Plywood 4x8", trade_class_id: "trade-1", category: "Sheathing", unit: "sheet", material_cost: 58.00, labor_cost: 15.00, description: "3/4 inch plywood sheet 4x8 feet" },
       
       // Electrical
-      { id: "sku-4", sku: "ELEC-OUT-STD", name: "Standard Electrical Outlet", tradeClassId: "trade-2", category: "Outlets", unit: "each", materialCost: 12.50, laborCost: 45.00, description: "Standard 15A electrical outlet with installation" },
-      { id: "sku-5", sku: "ELEC-SW-STD", name: "Standard Light Switch", tradeClassId: "trade-2", category: "Switches", unit: "each", materialCost: 8.75, laborCost: 35.00, description: "Standard single-pole light switch" },
-      { id: "sku-6", sku: "WIRE-12-2", name: "12-2 Romex Wire", tradeClassId: "trade-2", category: "Wiring", unit: "ft", materialCost: 0.85, laborCost: 1.25, description: "12 AWG 2-conductor Romex wire" },
+      { id: "sku-4", sku: "ELEC-OUT-STD", name: "Standard Electrical Outlet", trade_class_id: "trade-2", category: "Outlets", unit: "each", material_cost: 12.50, labor_cost: 45.00, description: "Standard 15A electrical outlet with installation" },
+      { id: "sku-5", sku: "ELEC-SW-STD", name: "Standard Light Switch", trade_class_id: "trade-2", category: "Switches", unit: "each", material_cost: 8.75, labor_cost: 35.00, description: "Standard single-pole light switch" },
+      { id: "sku-6", sku: "WIRE-12-2", name: "12-2 Romex Wire", trade_class_id: "trade-2", category: "Wiring", unit: "ft", material_cost: 0.85, labor_cost: 1.25, description: "12 AWG 2-conductor Romex wire" },
       
       // Plumbing
-      { id: "sku-7", sku: "PIPE-PVC-4", name: "4\" PVC Pipe", tradeClassId: "trade-3", category: "Pipe", unit: "ft", materialCost: 3.25, laborCost: 8.50, description: "4 inch PVC drain pipe" },
-      { id: "sku-8", sku: "FIX-TOILET-STD", name: "Standard Toilet", tradeClassId: "trade-3", category: "Fixtures", unit: "each", materialCost: 285.00, laborCost: 175.00, description: "Standard two-piece toilet with installation" },
+      { id: "sku-7", sku: "PIPE-PVC-4", name: "4\" PVC Pipe", trade_class_id: "trade-3", category: "Pipe", unit: "ft", material_cost: 3.25, labor_cost: 8.50, description: "4 inch PVC drain pipe" },
+      { id: "sku-8", sku: "FIX-TOILET-STD", name: "Standard Toilet", trade_class_id: "trade-3", category: "Fixtures", unit: "each", material_cost: 285.00, labor_cost: 175.00, description: "Standard two-piece toilet with installation" },
       
       // HVAC
-      { id: "sku-9", sku: "DUCT-6", name: "6\" Flexible Ductwork", tradeClassId: "trade-4", category: "Ductwork", unit: "ft", materialCost: 4.50, laborCost: 6.25, description: "6 inch flexible HVAC ductwork" },
-      { id: "sku-10", sku: "VENT-CEIL", name: "Ceiling Vent Register", tradeClassId: "trade-4", category: "Vents", unit: "each", materialCost: 28.00, laborCost: 45.00, description: "Standard ceiling vent register" },
+      { id: "sku-9", sku: "DUCT-6", name: "6\" Flexible Ductwork", trade_class_id: "trade-4", category: "Ductwork", unit: "ft", material_cost: 4.50, labor_cost: 6.25, description: "6 inch flexible HVAC ductwork" },
+      { id: "sku-10", sku: "VENT-CEIL", name: "Ceiling Vent Register", trade_class_id: "trade-4", category: "Vents", unit: "each", material_cost: 28.00, labor_cost: 45.00, description: "Standard ceiling vent register" },
       
       // Flooring
-      { id: "sku-11", sku: "FLOOR-OAK-34", name: "3/4\" Oak Hardwood", tradeClassId: "trade-5", category: "Hardwood", unit: "sq ft", materialCost: 8.50, laborCost: 6.00, description: "3/4 inch solid oak hardwood flooring" },
-      { id: "sku-12", sku: "TILE-POR-12X24", name: "12x24 Porcelain Tile", tradeClassId: "trade-5", category: "Tile", unit: "sq ft", materialCost: 4.25, laborCost: 8.75, description: "12x24 inch porcelain floor tile" },
+      { id: "sku-11", sku: "FLOOR-OAK-34", name: "3/4\" Oak Hardwood", trade_class_id: "trade-5", category: "Hardwood", unit: "sq ft", material_cost: 8.50, labor_cost: 6.00, description: "3/4 inch solid oak hardwood flooring" },
+      { id: "sku-12", sku: "TILE-POR-12X24", name: "12x24 Porcelain Tile", trade_class_id: "trade-5", category: "Tile", unit: "sq ft", material_cost: 4.25, labor_cost: 8.75, description: "12x24 inch porcelain floor tile" },
       
       // Windows & Doors
-      { id: "sku-13", sku: "WIN-DH-3X4", name: "3x4 Double Hung Window", tradeClassId: "trade-6", category: "Windows", unit: "each", materialCost: 350.00, laborCost: 200.00, description: "3x4 feet double hung vinyl window" },
-      { id: "sku-14", sku: "DOOR-INT-32", name: "32\" Interior Door", tradeClassId: "trade-6", category: "Doors", unit: "each", materialCost: 180.00, laborCost: 150.00, description: "32 inch hollow core interior door" },
+      { id: "sku-13", sku: "WIN-DH-3X4", name: "3x4 Double Hung Window", trade_class_id: "trade-6", category: "Windows", unit: "each", material_cost: 350.00, labor_cost: 200.00, description: "3x4 feet double hung vinyl window" },
+      { id: "sku-14", sku: "DOOR-INT-32", name: "32\" Interior Door", trade_class_id: "trade-6", category: "Doors", unit: "each", material_cost: 180.00, labor_cost: 150.00, description: "32 inch hollow core interior door" },
       
       // Roofing
-      { id: "sku-15", sku: "SHIN-ARCH-30", name: "30-Year Architectural Shingles", tradeClassId: "trade-7", category: "Shingles", unit: "sq", materialCost: 125.00, laborCost: 85.00, description: "30-year architectural asphalt shingles per square" },
+      { id: "sku-15", sku: "SHIN-ARCH-30", name: "30-Year Architectural Shingles", trade_class_id: "trade-7", category: "Shingles", unit: "sq", material_cost: 125.00, labor_cost: 85.00, description: "30-year architectural asphalt shingles per square" },
       
       // Insulation
-      { id: "sku-16", sku: "INSUL-FG-R15", name: "R-15 Fiberglass Insulation", tradeClassId: "trade-8", category: "Batts", unit: "sq ft", materialCost: 1.25, laborCost: 0.75, description: "R-15 fiberglass batt insulation" },
+      { id: "sku-16", sku: "INSUL-FG-R15", name: "R-15 Fiberglass Insulation", trade_class_id: "trade-8", category: "Batts", unit: "sq ft", material_cost: 1.25, labor_cost: 0.75, description: "R-15 fiberglass batt insulation" },
     ]);
     
     this.initialized = true;
@@ -387,7 +389,7 @@ export class DatabaseStorage implements IStorage {
   async updateProject(id: string, updateData: Partial<InsertProject>): Promise<Project | undefined> {
     const [project] = await db
       .update(projects)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set({ ...updateData, updated_at: new Date() })
       .where(eq(projects.id, id))
       .returning();
     return project;
@@ -395,13 +397,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProject(id: string): Promise<boolean> {
     // Delete related takeoffs first
-    const projectDrawings = await db.select().from(drawings).where(eq(drawings.projectId, id));
+    const projectDrawings = await db.select().from(drawings).where(eq(drawings.project_id, id));
     for (const drawing of projectDrawings) {
-      await db.delete(takeoffs).where(eq(takeoffs.drawingId, drawing.id));
+      await db.delete(takeoffs).where(eq(takeoffs.drawing_id, drawing.id));
     }
     
     // Delete related drawings
-    await db.delete(drawings).where(eq(drawings.projectId, id));
+    await db.delete(drawings).where(eq(drawings.project_id, id));
     
     // Delete the project
     const result = await db.delete(projects).where(eq(projects.id, id));
@@ -415,7 +417,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDrawingsByProject(projectId: string): Promise<Drawing[]> {
-    return await db.select().from(drawings).where(eq(drawings.projectId, projectId));
+    return await db.select().from(drawings).where(eq(drawings.project_id, projectId));
   }
 
   async createDrawing(insertDrawing: InsertDrawing): Promise<Drawing> {
@@ -429,7 +431,7 @@ export class DatabaseStorage implements IStorage {
   async updateDrawing(id: string, updateData: Partial<InsertDrawing>): Promise<Drawing | undefined> {
     const [drawing] = await db
       .update(drawings)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set({ ...updateData, updated_at: new Date() })
       .where(eq(drawings.id, id))
       .returning();
     return drawing;
@@ -442,7 +444,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTakeoffsByDrawing(drawingId: string): Promise<Takeoff[]> {
-    return await db.select().from(takeoffs).where(eq(takeoffs.drawingId, drawingId));
+    return await db.select().from(takeoffs).where(eq(takeoffs.drawing_id, drawingId));
   }
 
   async createTakeoff(insertTakeoff: InsertTakeoff): Promise<Takeoff> {
@@ -469,21 +471,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTakeoff(id: string, updateData: Partial<InsertTakeoff>): Promise<Takeoff | undefined> {
-    // Store original values if not already stored and this is the first manual edit
-    if (updateData.manuallyEdited && !updateData.originalQuantity) {
-      const existingTakeoff = await this.getTakeoff(id);
-      if (existingTakeoff && !existingTakeoff.manuallyEdited) {
-        updateData.originalQuantity = existingTakeoff.quantity;
-        updateData.originalArea = existingTakeoff.area;
-        updateData.originalLength = existingTakeoff.length;
-        updateData.originalCostPerUnit = existingTakeoff.costPerUnit;
-        updateData.originalTotalCost = existingTakeoff.totalCost;
-      }
-    }
-
     const [takeoff] = await db
       .update(takeoffs)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set({ ...updateData, updated_at: new Date() })
       .where(eq(takeoffs.id, id))
       .returning();
     return takeoff;
@@ -496,16 +486,16 @@ export class DatabaseStorage implements IStorage {
 
   // Material Costs
   async getMaterialCosts(): Promise<MaterialCost[]> {
-    return await db.select().from(materialCosts);
+    return await db.select().from(material_costs);
   }
 
   async getMaterialCostsByCategory(category: string): Promise<MaterialCost[]> {
-    return await db.select().from(materialCosts).where(eq(materialCosts.category, category));
+    return await db.select().from(material_costs).where(eq(material_costs.category, category));
   }
 
   async createMaterialCost(insertCost: InsertMaterialCost): Promise<MaterialCost> {
     const [cost] = await db
-      .insert(materialCosts)
+      .insert(material_costs)
       .values({ ...insertCost, id: randomUUID() })
       .returning();
     return cost;
@@ -513,17 +503,17 @@ export class DatabaseStorage implements IStorage {
 
   // Saved Analyses
   async getSavedAnalysis(id: string): Promise<SavedAnalysis | undefined> {
-    const [analysis] = await db.select().from(savedAnalyses).where(eq(savedAnalyses.id, id));
+    const [analysis] = await db.select().from(saved_analyses).where(eq(saved_analyses.id, id));
     return analysis;
   }
 
   async getSavedAnalysesByProject(projectId: string): Promise<SavedAnalysis[]> {
-    return await db.select().from(savedAnalyses).where(eq(savedAnalyses.projectId, projectId));
+    return await db.select().from(saved_analyses).where(eq(saved_analyses.project_id, projectId));
   }
 
   async createSavedAnalysis(insertAnalysis: InsertSavedAnalysis): Promise<SavedAnalysis> {
     const [analysis] = await db
-      .insert(savedAnalyses)
+      .insert(saved_analyses)
       .values({ ...insertAnalysis, id: randomUUID() })
       .returning();
     return analysis;
@@ -531,31 +521,31 @@ export class DatabaseStorage implements IStorage {
 
   async updateSavedAnalysis(id: string, updateData: Partial<InsertSavedAnalysis>): Promise<SavedAnalysis | undefined> {
     const [analysis] = await db
-      .update(savedAnalyses)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(savedAnalyses.id, id))
+      .update(saved_analyses)
+      .set({ ...updateData, updated_at: new Date() })
+      .where(eq(saved_analyses.id, id))
       .returning();
     return analysis;
   }
 
   async deleteSavedAnalysis(id: string): Promise<boolean> {
-    const result = await db.delete(savedAnalyses).where(eq(savedAnalyses.id, id));
+    const result = await db.delete(saved_analyses).where(eq(saved_analyses.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Trade Classes
   async getTradeClasses(): Promise<TradeClass[]> {
-    return await db.select().from(tradeClasses);
+    return await db.select().from(trade_classes);
   }
 
   async getTradeClass(id: string): Promise<TradeClass | undefined> {
-    const [tradeClass] = await db.select().from(tradeClasses).where(eq(tradeClasses.id, id));
+    const [tradeClass] = await db.select().from(trade_classes).where(eq(trade_classes.id, id));
     return tradeClass;
   }
 
   async createTradeClass(insertTradeClass: InsertTradeClass): Promise<TradeClass> {
     const [tradeClass] = await db
-      .insert(tradeClasses)
+      .insert(trade_classes)
       .values({ ...insertTradeClass, id: randomUUID() })
       .returning();
     return tradeClass;
@@ -563,45 +553,45 @@ export class DatabaseStorage implements IStorage {
 
   async updateTradeClass(id: string, updateData: Partial<InsertTradeClass>): Promise<TradeClass | undefined> {
     const [tradeClass] = await db
-      .update(tradeClasses)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(tradeClasses.id, id))
+      .update(trade_classes)
+      .set({ ...updateData, updated_at: new Date() })
+      .where(eq(trade_classes.id, id))
       .returning();
     return tradeClass;
   }
 
   async deleteTradeClass(id: string): Promise<boolean> {
-    const result = await db.delete(tradeClasses).where(eq(tradeClasses.id, id));
+    const result = await db.delete(trade_classes).where(eq(trade_classes.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Product SKUs
   async getProductSkus(): Promise<ProductSku[]> {
-    return await db.select().from(productSkus);
+    return await db.select().from(product_skus);
   }
 
   async getProductSkusByTradeClass(tradeClassId: string): Promise<ProductSku[]> {
-    return await db.select().from(productSkus).where(eq(productSkus.tradeClassId, tradeClassId));
+    return await db.select().from(product_skus).where(eq(product_skus.trade_class_id, tradeClassId));
   }
 
   async getProductSku(id: string): Promise<ProductSku | undefined> {
-    const [sku] = await db.select().from(productSkus).where(eq(productSkus.id, id));
+    const [sku] = await db.select().from(product_skus).where(eq(product_skus.id, id));
     return sku;
   }
 
   async searchProductSkus(query: string, tradeClassId?: string): Promise<ProductSku[]> {
-    let conditions = sql`${productSkus.name} ILIKE ${'%' + query + '%'} OR ${productSkus.description} ILIKE ${'%' + query + '%'} OR ${productSkus.sku} ILIKE ${'%' + query + '%'}`;
+    let conditions = sql`${product_skus.name} ILIKE ${'%' + query + '%'} OR ${product_skus.description} ILIKE ${'%' + query + '%'} OR ${product_skus.sku} ILIKE ${'%' + query + '%'}`;
     
     if (tradeClassId) {
-      conditions = sql`${conditions} AND ${productSkus.tradeClassId} = ${tradeClassId}`;
+      conditions = sql`${conditions} AND ${product_skus.trade_class_id} = ${tradeClassId}`;
     }
     
-    return await db.select().from(productSkus).where(conditions);
+    return await db.select().from(product_skus).where(conditions);
   }
 
   async createProductSku(insertSku: InsertProductSku): Promise<ProductSku> {
     const [sku] = await db
-      .insert(productSkus)
+      .insert(product_skus)
       .values({ ...insertSku, id: randomUUID() })
       .returning();
     return sku;
@@ -609,31 +599,31 @@ export class DatabaseStorage implements IStorage {
 
   async updateProductSku(id: string, updateData: Partial<InsertProductSku>): Promise<ProductSku | undefined> {
     const [sku] = await db
-      .update(productSkus)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(productSkus.id, id))
+      .update(product_skus)
+      .set({ ...updateData, updated_at: new Date() })
+      .where(eq(product_skus.id, id))
       .returning();
     return sku;
   }
 
   async deleteProductSku(id: string): Promise<boolean> {
-    const result = await db.delete(productSkus).where(eq(productSkus.id, id));
+    const result = await db.delete(product_skus).where(eq(product_skus.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Project Pricing
   async getProjectPricing(projectId: string): Promise<ProjectPricing[]> {
-    return await db.select().from(projectPricing).where(eq(projectPricing.projectId, projectId));
+    return await db.select().from(project_pricing).where(eq(project_pricing.project_id, projectId));
   }
 
   async getProjectPricingItem(id: string): Promise<ProjectPricing | undefined> {
-    const [pricing] = await db.select().from(projectPricing).where(eq(projectPricing.id, id));
+    const [pricing] = await db.select().from(project_pricing).where(eq(project_pricing.id, id));
     return pricing;
   }
 
   async createProjectPricing(insertPricing: InsertProjectPricing): Promise<ProjectPricing> {
     const [pricing] = await db
-      .insert(projectPricing)
+      .insert(project_pricing)
       .values({ ...insertPricing, id: randomUUID() })
       .returning();
     return pricing;
@@ -641,35 +631,35 @@ export class DatabaseStorage implements IStorage {
 
   async updateProjectPricing(id: string, updateData: Partial<InsertProjectPricing>): Promise<ProjectPricing | undefined> {
     const [pricing] = await db
-      .update(projectPricing)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(projectPricing.id, id))
+      .update(project_pricing)
+      .set({ ...updateData, updated_at: new Date() })
+      .where(eq(project_pricing.id, id))
       .returning();
     return pricing;
   }
 
   async deleteProjectPricing(id: string): Promise<boolean> {
-    const result = await db.delete(projectPricing).where(eq(projectPricing.id, id));
+    const result = await db.delete(project_pricing).where(eq(project_pricing.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Estimate Templates
   async getEstimateTemplates(): Promise<EstimateTemplate[]> {
-    return await db.select().from(estimateTemplates);
+    return await db.select().from(estimate_templates);
   }
 
   async getEstimateTemplatesByTradeClass(tradeClassId: string): Promise<EstimateTemplate[]> {
-    return await db.select().from(estimateTemplates).where(eq(estimateTemplates.tradeClassId, tradeClassId));
+    return await db.select().from(estimate_templates).where(eq(estimate_templates.trade_class_id, tradeClassId));
   }
 
   async getEstimateTemplate(id: string): Promise<EstimateTemplate | undefined> {
-    const [template] = await db.select().from(estimateTemplates).where(eq(estimateTemplates.id, id));
+    const [template] = await db.select().from(estimate_templates).where(eq(estimate_templates.id, id));
     return template;
   }
 
   async createEstimateTemplate(insertTemplate: InsertEstimateTemplate): Promise<EstimateTemplate> {
     const [template] = await db
-      .insert(estimateTemplates)
+      .insert(estimate_templates)
       .values({ ...insertTemplate, id: randomUUID() })
       .returning();
     return template;
@@ -677,59 +667,59 @@ export class DatabaseStorage implements IStorage {
 
   async updateEstimateTemplate(id: string, updateData: Partial<InsertEstimateTemplate>): Promise<EstimateTemplate | undefined> {
     const [template] = await db
-      .update(estimateTemplates)
-      .set({ ...updateData, updatedAt: new Date() })
-      .where(eq(estimateTemplates.id, id))
+      .update(estimate_templates)
+      .set({ ...updateData, updated_at: new Date() })
+      .where(eq(estimate_templates.id, id))
       .returning();
     return template;
   }
 
   async deleteEstimateTemplate(id: string): Promise<boolean> {
-    const result = await db.delete(estimateTemplates).where(eq(estimateTemplates.id, id));
+    const result = await db.delete(estimate_templates).where(eq(estimate_templates.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Regional Cost Database Methods
   async getRegionalCostData(): Promise<RegionalCostDatabase[]> {
-    return await db.select().from(regionalCostDatabase);
+    return await db.select().from(regional_cost_database);
   }
 
   async getRegionalCostDataByLocation(region?: string, state?: string, zipCode?: string): Promise<RegionalCostDatabase[]> {
     const conditions: any[] = [];
     
     if (region) {
-      conditions.push(eq(regionalCostDatabase.region, region));
+      conditions.push(eq(regional_cost_database.region, region));
     }
     if (state) {
-      conditions.push(eq(regionalCostDatabase.state, state));
+      conditions.push(eq(regional_cost_database.state, state));
     }
     if (zipCode) {
-      conditions.push(eq(regionalCostDatabase.zipCode, zipCode));
+      conditions.push(eq(regional_cost_database.zip_code, zipCode));
     }
 
     if (conditions.length > 0) {
-      return await db.select().from(regionalCostDatabase).where(and(...conditions));
+      return await db.select().from(regional_cost_database).where(and(...conditions));
     } else {
-      return await db.select().from(regionalCostDatabase);
+      return await db.select().from(regional_cost_database);
     }
   }
 
   async createRegionalCostData(data: InsertRegionalCostDatabase): Promise<RegionalCostDatabase> {
-    const [result] = await db.insert(regionalCostDatabase).values(data).returning();
+    const [result] = await db.insert(regional_cost_database).values(data).returning();
     return result;
   }
 
   async updateRegionalCostData(id: string, data: Partial<InsertRegionalCostDatabase>): Promise<RegionalCostDatabase | undefined> {
-    const [result] = await db.update(regionalCostDatabase)
-      .set({ ...data, lastUpdated: new Date() })
-      .where(eq(regionalCostDatabase.id, id))
+    const [result] = await db.update(regional_cost_database)
+      .set({ ...data, last_updated: new Date() })
+      .where(eq(regional_cost_database.id, id))
       .returning();
     return result;
   }
 
   // Supplier Management Methods
   async getSuppliers(): Promise<Supplier[]> {
-    return await db.select().from(suppliers).where(eq(suppliers.isActive, true));
+    return await db.select().from(suppliers).where(eq(suppliers.is_active, true));
   }
 
   async getSupplier(id: string): Promise<Supplier | undefined> {
@@ -749,7 +739,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined> {
     const [result] = await db.update(suppliers)
-      .set({ ...supplier, updatedAt: new Date() })
+      .set({ ...supplier, updated_at: new Date() })
       .where(eq(suppliers.id, id))
       .returning();
     return result;
@@ -757,185 +747,185 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSupplier(id: string): Promise<boolean> {
     const result = await db.update(suppliers)
-      .set({ isActive: false })
+      .set({ is_active: false })
       .where(eq(suppliers.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Material Pricing Methods
   async getMaterialPricing(): Promise<MaterialPricing[]> {
-    return await db.select().from(materialPricing);
+    return await db.select().from(material_pricing);
   }
 
   async getMaterialPricingBySku(skuId: string): Promise<MaterialPricing[]> {
-    return await db.select().from(materialPricing)
-      .where(eq(materialPricing.skuId, skuId))
-      .orderBy(materialPricing.currentPrice);
+    return await db.select().from(material_pricing)
+      .where(eq(material_pricing.sku_id, skuId))
+      .orderBy(material_pricing.current_price);
   }
 
   async getMaterialPricingBySupplier(supplierId: string): Promise<MaterialPricing[]> {
-    return await db.select().from(materialPricing)
-      .where(eq(materialPricing.supplierId, supplierId));
+    return await db.select().from(material_pricing)
+      .where(eq(material_pricing.supplier_id, supplierId));
   }
 
   async getBestPriceForSku(skuId: string): Promise<MaterialPricing | undefined> {
-    const [result] = await db.select().from(materialPricing)
-      .where(eq(materialPricing.skuId, skuId))
-      .orderBy(materialPricing.currentPrice)
+    const [result] = await db.select().from(material_pricing)
+      .where(eq(material_pricing.sku_id, skuId))
+      .orderBy(material_pricing.current_price)
       .limit(1);
     return result;
   }
 
   async createMaterialPricing(pricing: InsertMaterialPricing): Promise<MaterialPricing> {
-    const [result] = await db.insert(materialPricing).values(pricing).returning();
+    const [result] = await db.insert(material_pricing).values(pricing).returning();
     return result;
   }
 
   async updateMaterialPricing(id: string, pricing: Partial<InsertMaterialPricing>): Promise<MaterialPricing | undefined> {
-    const [result] = await db.update(materialPricing)
-      .set({ ...pricing, lastUpdated: new Date() })
-      .where(eq(materialPricing.id, id))
+    const [result] = await db.update(material_pricing)
+      .set({ ...pricing, last_updated: new Date() })
+      .where(eq(material_pricing.id, id))
       .returning();
     return result;
   }
 
   // Change Order Methods
   async getChangeOrders(): Promise<ChangeOrder[]> {
-    return await db.select().from(changeOrders);
+    return await db.select().from(change_orders);
   }
 
   async getChangeOrdersByProject(projectId: string): Promise<ChangeOrder[]> {
-    return await db.select().from(changeOrders)
-      .where(eq(changeOrders.projectId, projectId))
-      .orderBy(changeOrders.createdAt);
+    return await db.select().from(change_orders)
+      .where(eq(change_orders.project_id, projectId))
+      .orderBy(change_orders.created_at);
   }
 
   async getChangeOrder(id: string): Promise<ChangeOrder | undefined> {
-    const [result] = await db.select().from(changeOrders).where(eq(changeOrders.id, id));
+    const [result] = await db.select().from(change_orders).where(eq(change_orders.id, id));
     return result;
   }
 
   async createChangeOrder(changeOrder: InsertChangeOrder): Promise<ChangeOrder> {
     // Generate change order number if not provided
-    if (!changeOrder.changeOrderNumber) {
-      const projectChangeOrders = await this.getChangeOrdersByProject(changeOrder.projectId);
-      changeOrder.changeOrderNumber = `CO-${String(projectChangeOrders.length + 1).padStart(3, '0')}`;
+    if (!changeOrder.change_order_number) {
+      const projectChangeOrders = await this.getChangeOrdersByProject(changeOrder.project_id);
+      changeOrder.change_order_number = `CO-${String(projectChangeOrders.length + 1).padStart(3, '0')}`;
     }
 
-    const [result] = await db.insert(changeOrders).values(changeOrder).returning();
+    const [result] = await db.insert(change_orders).values(changeOrder).returning();
     return result;
   }
 
   async updateChangeOrder(id: string, changeOrder: Partial<InsertChangeOrder>): Promise<ChangeOrder | undefined> {
-    const [result] = await db.update(changeOrders)
-      .set({ ...changeOrder, updatedAt: new Date() })
-      .where(eq(changeOrders.id, id))
+    const [result] = await db.update(change_orders)
+      .set({ ...changeOrder, updated_at: new Date() })
+      .where(eq(change_orders.id, id))
       .returning();
     return result;
   }
 
   async deleteChangeOrder(id: string): Promise<boolean> {
-    const result = await db.delete(changeOrders).where(eq(changeOrders.id, id));
+    const result = await db.delete(change_orders).where(eq(change_orders.id, id));
     return (result.rowCount || 0) > 0;
   }
 
   // Profit Margin Settings Methods
   async getProfitMarginSettings(): Promise<ProfitMarginSettings[]> {
-    return await db.select().from(profitMarginSettings)
-      .where(eq(profitMarginSettings.isActive, true));
+    return await db.select().from(profit_margin_settings)
+      .where(eq(profit_margin_settings.is_active, true));
   }
 
   async getProfitMarginSettingsByScope(scope: string, scopeId?: string): Promise<ProfitMarginSettings[]> {
     const conditions: any[] = [
-      eq(profitMarginSettings.scope, scope),
-      eq(profitMarginSettings.isActive, true)
+      eq(profit_margin_settings.scope, scope),
+      eq(profit_margin_settings.is_active, true)
     ];
 
     if (scopeId) {
       if (scope === 'project') {
-        conditions.push(eq(profitMarginSettings.projectId, scopeId));
+        conditions.push(eq(profit_margin_settings.project_id, scopeId));
       } else if (scope === 'trade_class') {
-        conditions.push(eq(profitMarginSettings.tradeClassId, scopeId));
+        conditions.push(eq(profit_margin_settings.trade_class_id, scopeId));
       }
     }
 
-    return await db.select().from(profitMarginSettings)
+    return await db.select().from(profit_margin_settings)
       .where(and(...conditions));
   }
 
   async createProfitMarginSettings(settings: InsertProfitMarginSettings): Promise<ProfitMarginSettings> {
-    const [result] = await db.insert(profitMarginSettings).values(settings).returning();
+    const [result] = await db.insert(profit_margin_settings).values(settings).returning();
     return result;
   }
 
   async updateProfitMarginSettings(id: string, settings: Partial<InsertProfitMarginSettings>): Promise<ProfitMarginSettings | undefined> {
-    const [result] = await db.update(profitMarginSettings)
-      .set({ ...settings, updatedAt: new Date() })
-      .where(eq(profitMarginSettings.id, id))
+    const [result] = await db.update(profit_margin_settings)
+      .set({ ...settings, updated_at: new Date() })
+      .where(eq(profit_margin_settings.id, id))
       .returning();
     return result;
   }
 
   // Cost History Methods
   async getCostHistory(): Promise<CostHistory[]> {
-    return await db.select().from(costHistory)
-      .orderBy(costHistory.recordDate);
+    return await db.select().from(cost_history)
+      .orderBy(cost_history.record_date);
   }
 
   async getCostHistoryBySku(skuId: string): Promise<CostHistory[]> {
-    return await db.select().from(costHistory)
-      .where(eq(costHistory.skuId, skuId))
-      .orderBy(costHistory.recordDate);
+    return await db.select().from(cost_history)
+      .where(eq(cost_history.sku_id, skuId))
+      .orderBy(cost_history.record_date);
   }
 
   async getCostTrend(skuId: string, days: number): Promise<CostHistory[]> {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - days);
 
-    return await db.select().from(costHistory)
+    return await db.select().from(cost_history)
       .where(and(
-        eq(costHistory.skuId, skuId),
-        sql`${costHistory.recordDate} >= ${dateThreshold}`
+        eq(cost_history.sku_id, skuId),
+        sql`${cost_history.record_date} >= ${dateThreshold}`
       ))
-      .orderBy(costHistory.recordDate);
+      .orderBy(cost_history.record_date);
   }
 
   async createCostHistory(history: InsertCostHistory): Promise<CostHistory> {
-    const [result] = await db.insert(costHistory).values(history).returning();
+    const [result] = await db.insert(cost_history).values(history).returning();
     return result;
   }
 
   // Cost Escalation Methods
   async getCostEscalation(): Promise<CostEscalation[]> {
-    return await db.select().from(costEscalation);
+    return await db.select().from(cost_escalation);
   }
 
   async getCostEscalationByProject(projectId: string): Promise<CostEscalation[]> {
-    return await db.select().from(costEscalation)
-      .where(eq(costEscalation.projectId, projectId))
-      .orderBy(costEscalation.effectiveDate);
+    return await db.select().from(cost_escalation)
+      .where(eq(cost_escalation.project_id, projectId))
+      .orderBy(cost_escalation.effective_date);
   }
 
   async getActiveCostEscalation(projectId: string): Promise<CostEscalation[]> {
     const currentDate = new Date();
-    return await db.select().from(costEscalation)
+    return await db.select().from(cost_escalation)
       .where(and(
-        eq(costEscalation.projectId, projectId),
-        eq(costEscalation.isActive, true),
-        sql`${costEscalation.effectiveDate} <= ${currentDate}`,
-        sql`${costEscalation.endDate} IS NULL OR ${costEscalation.endDate} > ${currentDate}`
+        eq(cost_escalation.project_id, projectId),
+        eq(cost_escalation.is_active, true),
+        sql`${cost_escalation.effective_date} <= ${currentDate}`,
+        sql`${cost_escalation.end_date} IS NULL OR ${cost_escalation.end_date} > ${currentDate}`
       ));
   }
 
   async createCostEscalation(escalation: InsertCostEscalation): Promise<CostEscalation> {
-    const [result] = await db.insert(costEscalation).values(escalation).returning();
+    const [result] = await db.insert(cost_escalation).values(escalation).returning();
     return result;
   }
 
   async updateCostEscalation(id: string, escalation: Partial<InsertCostEscalation>): Promise<CostEscalation | undefined> {
-    const [result] = await db.update(costEscalation)
-      .set({ ...escalation, updatedAt: new Date() })
-      .where(eq(costEscalation.id, id))
+    const [result] = await db.update(cost_escalation)
+      .set({ ...escalation, updated_at: new Date() })
+      .where(eq(cost_escalation.id, id))
       .returning();
     return result;
   }
@@ -950,12 +940,12 @@ export class DatabaseStorage implements IStorage {
     insights: string[];
   }> {
     // Get all drawings for this project first, then get takeoffs for all drawings
-    const projectDrawings = await db.select().from(drawings).where(eq(drawings.projectId, projectId));
+    const projectDrawings = await db.select().from(drawings).where(eq(drawings.project_id, projectId));
     let projectTakeoffs: Takeoff[] = [];
     
     if (projectDrawings.length > 0) {
       const drawingIds = projectDrawings.map(d => d.id);
-      projectTakeoffs = await db.select().from(takeoffs).where(sql`${takeoffs.drawingId} IN (${drawingIds.map(id => `'${id}'`).join(',')})`) as Takeoff[];
+      projectTakeoffs = await db.select().from(takeoffs).where(sql`${takeoffs.drawing_id} IN (${drawingIds.map(id => `'${id}'`).join(',')})`) as Takeoff[];
     }
     
     if (projectTakeoffs.length === 0) {
@@ -970,7 +960,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Calculate total project cost
-    const totalCost = projectTakeoffs.reduce((sum, t) => sum + (t.totalCost || 0), 0);
+    const totalCost = projectTakeoffs.reduce((sum, t) => sum + (t.total_cost || 0), 0);
     
     // Calculate area-based metrics
     const totalArea = projectTakeoffs.reduce((sum, t) => sum + (t.area || 0), 0);
@@ -979,8 +969,8 @@ export class DatabaseStorage implements IStorage {
     // Categorize costs
     const categoryTotals = new Map<string, number>();
     projectTakeoffs.forEach(takeoff => {
-      const category = takeoff.elementType || 'Other';
-      categoryTotals.set(category, (categoryTotals.get(category) || 0) + (takeoff.totalCost || 0));
+      const category = takeoff.element_type || 'Other';
+      categoryTotals.set(category, (categoryTotals.get(category) || 0) + (takeoff.total_cost || 0));
     });
     
     const costByCategory = Array.from(categoryTotals.entries())
@@ -1037,12 +1027,12 @@ export class DatabaseStorage implements IStorage {
     }>;
   }> {
     // Get all drawings for this project first, then get takeoffs for all drawings
-    const projectDrawings = await db.select().from(drawings).where(eq(drawings.projectId, projectId));
+    const projectDrawings = await db.select().from(drawings).where(eq(drawings.project_id, projectId));
     let projectTakeoffs: Takeoff[] = [];
     
     if (projectDrawings.length > 0) {
       const drawingIds = projectDrawings.map(d => d.id);
-      projectTakeoffs = await db.select().from(takeoffs).where(sql`${takeoffs.drawingId} IN (${drawingIds.map(id => `'${id}'`).join(',')})`) as Takeoff[];
+      projectTakeoffs = await db.select().from(takeoffs).where(sql`${takeoffs.drawing_id} IN (${drawingIds.map(id => `'${id}'`).join(',')})`) as Takeoff[];
     }
     const analysis = await this.analyzeProjectCostEfficiency(projectId);
     
@@ -1070,7 +1060,7 @@ export class DatabaseStorage implements IStorage {
     // Quantity optimization
     const highQuantityItems = projectTakeoffs.filter(t => (t.quantity || 0) > 50);
     if (highQuantityItems.length > 0) {
-      const savings = highQuantityItems.reduce((sum, item) => sum + (item.totalCost || 0), 0) * 0.05;
+      const savings = highQuantityItems.reduce((sum, item) => sum + (item.total_cost || 0), 0) * 0.05;
       opportunities.push({
         category: 'Bulk Purchase',
         description: 'Negotiate bulk pricing for high-quantity items',
@@ -1081,9 +1071,9 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Material substitution
-    const expensiveItems = projectTakeoffs.filter(t => (t.costPerUnit || 0) > 100);
+    const expensiveItems = projectTakeoffs.filter(t => (t.cost_per_unit || 0) > 100);
     if (expensiveItems.length > 0) {
-      const savings = expensiveItems.reduce((sum, item) => sum + (item.totalCost || 0), 0) * 0.15;
+      const savings = expensiveItems.reduce((sum, item) => sum + (item.total_cost || 0), 0) * 0.15;
       opportunities.push({
         category: 'Material Substitution',
         description: 'Consider alternative materials for expensive items',

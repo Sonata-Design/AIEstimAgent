@@ -8,7 +8,7 @@
     "dev:full": "concurrently \"npm:dev:api\" \"npm:dev:frontend\" \"npm:dev:ml\"",
     "dev:api": "cross-env NODE_ENV=development tsx api/index.ts",
     "dev:frontend": "vite",
-    "dev:ml": "cd ml && uvicorn app:app --host 127.0.0.1 --port 8000 --reload",
+    "dev:ml": "cd ml && python -u -m uvicorn app:app --host 127.0.0.1 --port 8001 --reload",
     "build": "vite build",
     "build:api": "tsc --project tsconfig.json",
     "start": "cross-env NODE_ENV=production tsx api/index.ts",
