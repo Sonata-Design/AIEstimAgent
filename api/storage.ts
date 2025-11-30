@@ -175,7 +175,6 @@ export class DatabaseStorage implements IStorage {
     const [sampleProject] = await db
       .insert(projects)
       .values({
-        id: "proj-1",
         name: "Downtown Office Complex",
         description: "Mixed-use commercial building with office spaces and retail on ground floor",
         location: "123 Business Ave, Suite 400",
@@ -187,7 +186,6 @@ export class DatabaseStorage implements IStorage {
     // Sample drawings
     const sampleDrawings = [
       {
-        id: "draw-1",
         project_id: sampleProject.id,
         name: "Floor Plan - Level 1",
         filename: "floor-plan-l1.pdf",
@@ -198,7 +196,6 @@ export class DatabaseStorage implements IStorage {
         is_ai_processed: true,
       },
       {
-        id: "draw-2",
         project_id: sampleProject.id,
         name: "Electrical Plan - Level 1",
         filename: "electrical-l1.pdf",
@@ -209,7 +206,6 @@ export class DatabaseStorage implements IStorage {
         is_ai_processed: true,
       },
       {
-        id: "draw-3",
         project_id: sampleProject.id,
         name: "HVAC Layout - Level 1",
         filename: "hvac-l1.pdf",
@@ -223,69 +219,69 @@ export class DatabaseStorage implements IStorage {
     
     await db.insert(drawings).values(sampleDrawings);
 
-    // Sample takeoffs for the first drawing
-    await db.insert(takeoffs).values([
-      {
-        id: "takeoff-1",
-        drawing_id: "draw-1",
-        element_type: "doors",
-        element_name: "Interior Door - 36\" x 80\"",
-        item_type: "Interior Door",
-        quantity: 12,
-        width: 36,
-        height: 80,
-        unit: "each",
-        coordinates: { x: 100, y: 200 },
-        is_detected_by_ai: true,
-        cost_per_unit: 250,
-        total_cost: 3000,
-      },
-      {
-        id: "takeoff-2",
-        drawing_id: "draw-1",
-        element_type: "windows",
-        element_name: "Double Hung Window - 48\" x 60\"",
-        item_type: "Double Hung Window",
-        quantity: 8,
-        width: 48,
-        height: 60,
-        unit: "each",
-        coordinates: { x: 300, y: 150 },
-        is_detected_by_ai: true,
-        cost_per_unit: 450,
-        total_cost: 3600,
-      },
-      {
-        id: "takeoff-3",
-        drawing_id: "draw-1",
-        element_type: "flooring",
-        element_name: "Luxury Vinyl Plank",
-        item_type: "Vinyl Flooring",
-        quantity: 2400,
-        area: 2400,
-        unit: "sq ft",
-        is_detected_by_ai: true,
-        cost_per_unit: 4.5,
-        total_cost: 10800,
-      },
-      {
-        id: "takeoff-4",
-        drawing_id: "draw-1",
-        element_type: "electrical",
-        element_name: "Electrical Outlets",
-        item_type: "Electrical Outlet",
-        quantity: 24,
-        unit: "each",
-        is_detected_by_ai: true,
-        cost_per_unit: 85,
-        total_cost: 2040,
-      }
-    ]);
+    // Get the first drawing for sample takeoffs
+    const [firstDrawing] = await db.select().from(drawings).where(eq(drawings.project_id, sampleProject.id)).limit(1);
+    
+    if (firstDrawing) {
+      // Sample takeoffs for the first drawing
+      await db.insert(takeoffs).values([
+        {
+          drawing_id: firstDrawing.id,
+          element_type: "doors",
+          element_name: "Interior Door - 36\" x 80\"",
+          item_type: "Interior Door",
+          quantity: 12,
+          width: 36,
+          height: 80,
+          unit: "each",
+          coordinates: { x: 100, y: 200 },
+          is_detected_by_ai: true,
+          cost_per_unit: 250,
+          total_cost: 3000,
+        },
+        {
+          drawing_id: firstDrawing.id,
+          element_type: "windows",
+          element_name: "Double Hung Window - 48\" x 60\"",
+          item_type: "Double Hung Window",
+          quantity: 8,
+          width: 48,
+          height: 60,
+          unit: "each",
+          coordinates: { x: 300, y: 150 },
+          is_detected_by_ai: true,
+          cost_per_unit: 450,
+          total_cost: 3600,
+        },
+        {
+          drawing_id: firstDrawing.id,
+          element_type: "flooring",
+          element_name: "Luxury Vinyl Plank",
+          item_type: "Vinyl Flooring",
+          quantity: 2400,
+          area: 2400,
+          unit: "sq ft",
+          is_detected_by_ai: true,
+          cost_per_unit: 4.5,
+          total_cost: 10800,
+        },
+        {
+          drawing_id: firstDrawing.id,
+          element_type: "electrical",
+          element_name: "Electrical Outlets",
+          item_type: "Electrical Outlet",
+          quantity: 24,
+          unit: "each",
+          is_detected_by_ai: true,
+          cost_per_unit: 85,
+          total_cost: 2040,
+        }
+      ]);
+    }
 
     // Sample material costs
     await db.insert(material_costs).values([
       {
-        id: "cost-1",
         category: "doors",
         item_name: "Interior Door (36\")",
         unit: "each",
@@ -294,7 +290,6 @@ export class DatabaseStorage implements IStorage {
         description: "Standard hollow core interior door with frame",
       },
       {
-        id: "cost-2",
         category: "windows",
         item_name: "Double Hung Window (3'x4')",
         unit: "each",
@@ -303,7 +298,6 @@ export class DatabaseStorage implements IStorage {
         description: "Standard double hung window with installation",
       },
       {
-        id: "cost-3",
         category: "flooring",
         item_name: "Hardwood Flooring",
         unit: "sq ft",
@@ -314,50 +308,50 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     // Sample trade classes
-    await db.insert(trade_classes).values([
-      { id: "trade-1", name: "General Construction", code: "GC", description: "General construction and framing" },
-      { id: "trade-2", name: "Electrical", code: "ELEC", description: "Electrical systems and components" },
-      { id: "trade-3", name: "Plumbing", code: "PLUMB", description: "Plumbing systems and fixtures" },
-      { id: "trade-4", name: "HVAC", code: "HVAC", description: "Heating, ventilation, and air conditioning" },
-      { id: "trade-5", name: "Flooring", code: "FLOOR", description: "All types of flooring materials and installation" },
-      { id: "trade-6", name: "Windows & Doors", code: "WD", description: "Windows, doors, and related hardware" },
-      { id: "trade-7", name: "Roofing", code: "ROOF", description: "Roofing materials and installation" },
-      { id: "trade-8", name: "Insulation", code: "INSUL", description: "Insulation materials and installation" },
-    ]);
+    const tradeClasses = await db.insert(trade_classes).values([
+      { name: "General Construction", code: "GC", description: "General construction and framing" },
+      { name: "Electrical", code: "ELEC", description: "Electrical systems and components" },
+      { name: "Plumbing", code: "PLUMB", description: "Plumbing systems and fixtures" },
+      { name: "HVAC", code: "HVAC", description: "Heating, ventilation, and air conditioning" },
+      { name: "Flooring", code: "FLOOR", description: "All types of flooring materials and installation" },
+      { name: "Windows & Doors", code: "WD", description: "Windows, doors, and related hardware" },
+      { name: "Roofing", code: "ROOF", description: "Roofing materials and installation" },
+      { name: "Insulation", code: "INSUL", description: "Insulation materials and installation" },
+    ]).returning();
 
     // Sample product SKUs
     await db.insert(product_skus).values([
       // General Construction
-      { id: "sku-1", sku: "LUM-2X4-8", name: "2x4x8 Lumber", trade_class_id: "trade-1", category: "Lumber", unit: "piece", material_cost: 6.50, labor_cost: 2.00, description: "Standard 2x4x8 construction lumber" },
-      { id: "sku-2", sku: "LUM-2X6-8", name: "2x6x8 Lumber", trade_class_id: "trade-1", category: "Lumber", unit: "piece", material_cost: 9.75, labor_cost: 2.50, description: "Standard 2x6x8 construction lumber" },
-      { id: "sku-3", sku: "PLY-3/4-4X8", name: "3/4\" Plywood 4x8", trade_class_id: "trade-1", category: "Sheathing", unit: "sheet", material_cost: 58.00, labor_cost: 15.00, description: "3/4 inch plywood sheet 4x8 feet" },
+      { sku: "LUM-2X4-8", name: "2x4x8 Lumber", trade_class_id: tradeClasses[0].id, category: "Lumber", unit: "piece", material_cost: 6.50, labor_cost: 2.00, description: "Standard 2x4x8 construction lumber" },
+      { sku: "LUM-2X6-8", name: "2x6x8 Lumber", trade_class_id: tradeClasses[0].id, category: "Lumber", unit: "piece", material_cost: 9.75, labor_cost: 2.50, description: "Standard 2x6x8 construction lumber" },
+      { sku: "PLY-3/4-4X8", name: "3/4\" Plywood 4x8", trade_class_id: tradeClasses[0].id, category: "Sheathing", unit: "sheet", material_cost: 58.00, labor_cost: 15.00, description: "3/4 inch plywood sheet 4x8 feet" },
       
       // Electrical
-      { id: "sku-4", sku: "ELEC-OUT-STD", name: "Standard Electrical Outlet", trade_class_id: "trade-2", category: "Outlets", unit: "each", material_cost: 12.50, labor_cost: 45.00, description: "Standard 15A electrical outlet with installation" },
-      { id: "sku-5", sku: "ELEC-SW-STD", name: "Standard Light Switch", trade_class_id: "trade-2", category: "Switches", unit: "each", material_cost: 8.75, labor_cost: 35.00, description: "Standard single-pole light switch" },
-      { id: "sku-6", sku: "WIRE-12-2", name: "12-2 Romex Wire", trade_class_id: "trade-2", category: "Wiring", unit: "ft", material_cost: 0.85, labor_cost: 1.25, description: "12 AWG 2-conductor Romex wire" },
+      { sku: "ELEC-OUT-STD", name: "Standard Electrical Outlet", trade_class_id: tradeClasses[1].id, category: "Outlets", unit: "each", material_cost: 12.50, labor_cost: 45.00, description: "Standard 15A electrical outlet with installation" },
+      { sku: "ELEC-SW-STD", name: "Standard Light Switch", trade_class_id: tradeClasses[1].id, category: "Switches", unit: "each", material_cost: 8.75, labor_cost: 35.00, description: "Standard single-pole light switch" },
+      { sku: "WIRE-12-2", name: "12-2 Romex Wire", trade_class_id: tradeClasses[1].id, category: "Wiring", unit: "ft", material_cost: 0.85, labor_cost: 1.25, description: "12 AWG 2-conductor Romex wire" },
       
       // Plumbing
-      { id: "sku-7", sku: "PIPE-PVC-4", name: "4\" PVC Pipe", trade_class_id: "trade-3", category: "Pipe", unit: "ft", material_cost: 3.25, labor_cost: 8.50, description: "4 inch PVC drain pipe" },
-      { id: "sku-8", sku: "FIX-TOILET-STD", name: "Standard Toilet", trade_class_id: "trade-3", category: "Fixtures", unit: "each", material_cost: 285.00, labor_cost: 175.00, description: "Standard two-piece toilet with installation" },
+      { sku: "PIPE-PVC-4", name: "4\" PVC Pipe", trade_class_id: tradeClasses[2].id, category: "Pipe", unit: "ft", material_cost: 3.25, labor_cost: 8.50, description: "4 inch PVC drain pipe" },
+      { sku: "FIX-TOILET-STD", name: "Standard Toilet", trade_class_id: tradeClasses[2].id, category: "Fixtures", unit: "each", material_cost: 285.00, labor_cost: 175.00, description: "Standard two-piece toilet with installation" },
       
       // HVAC
-      { id: "sku-9", sku: "DUCT-6", name: "6\" Flexible Ductwork", trade_class_id: "trade-4", category: "Ductwork", unit: "ft", material_cost: 4.50, labor_cost: 6.25, description: "6 inch flexible HVAC ductwork" },
-      { id: "sku-10", sku: "VENT-CEIL", name: "Ceiling Vent Register", trade_class_id: "trade-4", category: "Vents", unit: "each", material_cost: 28.00, labor_cost: 45.00, description: "Standard ceiling vent register" },
+      { sku: "DUCT-6", name: "6\" Flexible Ductwork", trade_class_id: tradeClasses[3].id, category: "Ductwork", unit: "ft", material_cost: 4.50, labor_cost: 6.25, description: "6 inch flexible HVAC ductwork" },
+      { sku: "VENT-CEIL", name: "Ceiling Vent Register", trade_class_id: tradeClasses[3].id, category: "Vents", unit: "each", material_cost: 28.00, labor_cost: 45.00, description: "Standard ceiling vent register" },
       
       // Flooring
-      { id: "sku-11", sku: "FLOOR-OAK-34", name: "3/4\" Oak Hardwood", trade_class_id: "trade-5", category: "Hardwood", unit: "sq ft", material_cost: 8.50, labor_cost: 6.00, description: "3/4 inch solid oak hardwood flooring" },
-      { id: "sku-12", sku: "TILE-POR-12X24", name: "12x24 Porcelain Tile", trade_class_id: "trade-5", category: "Tile", unit: "sq ft", material_cost: 4.25, labor_cost: 8.75, description: "12x24 inch porcelain floor tile" },
+      { sku: "FLOOR-OAK-34", name: "3/4\" Oak Hardwood", trade_class_id: tradeClasses[4].id, category: "Hardwood", unit: "sq ft", material_cost: 8.50, labor_cost: 6.00, description: "3/4 inch solid oak hardwood flooring" },
+      { sku: "TILE-POR-12X24", name: "12x24 Porcelain Tile", trade_class_id: tradeClasses[4].id, category: "Tile", unit: "sq ft", material_cost: 4.25, labor_cost: 8.75, description: "12x24 inch porcelain floor tile" },
       
       // Windows & Doors
-      { id: "sku-13", sku: "WIN-DH-3X4", name: "3x4 Double Hung Window", trade_class_id: "trade-6", category: "Windows", unit: "each", material_cost: 350.00, labor_cost: 200.00, description: "3x4 feet double hung vinyl window" },
-      { id: "sku-14", sku: "DOOR-INT-32", name: "32\" Interior Door", trade_class_id: "trade-6", category: "Doors", unit: "each", material_cost: 180.00, labor_cost: 150.00, description: "32 inch hollow core interior door" },
+      { sku: "WIN-DH-3X4", name: "3x4 Double Hung Window", trade_class_id: tradeClasses[5].id, category: "Windows", unit: "each", material_cost: 350.00, labor_cost: 200.00, description: "3x4 feet double hung vinyl window" },
+      { sku: "DOOR-INT-32", name: "32\" Interior Door", trade_class_id: tradeClasses[5].id, category: "Doors", unit: "each", material_cost: 180.00, labor_cost: 150.00, description: "32 inch hollow core interior door" },
       
       // Roofing
-      { id: "sku-15", sku: "SHIN-ARCH-30", name: "30-Year Architectural Shingles", trade_class_id: "trade-7", category: "Shingles", unit: "sq", material_cost: 125.00, labor_cost: 85.00, description: "30-year architectural asphalt shingles per square" },
+      { sku: "SHIN-ARCH-30", name: "30-Year Architectural Shingles", trade_class_id: tradeClasses[6].id, category: "Shingles", unit: "sq", material_cost: 125.00, labor_cost: 85.00, description: "30-year architectural asphalt shingles per square" },
       
       // Insulation
-      { id: "sku-16", sku: "INSUL-FG-R15", name: "R-15 Fiberglass Insulation", trade_class_id: "trade-8", category: "Batts", unit: "sq ft", material_cost: 1.25, labor_cost: 0.75, description: "R-15 fiberglass batt insulation" },
+      { sku: "INSUL-FG-R15", name: "R-15 Fiberglass Insulation", trade_class_id: tradeClasses[7].id, category: "Batts", unit: "sq ft", material_cost: 1.25, labor_cost: 0.75, description: "R-15 fiberglass batt insulation" },
     ]);
     
     this.initialized = true;
