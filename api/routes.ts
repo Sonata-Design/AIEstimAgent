@@ -21,7 +21,7 @@ const PYTHON_API = process.env.ML_API_URL || process.env.VITE_ML_URL || "http://
 // Uploader for proxying to AI service (uses memory)
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB
 });
 
 // Uploader for saving files to the server (uses disk)
@@ -36,7 +36,7 @@ const diskUpload = multer({
       cb(null, unique + path.extname(file.originalname));
     },
   }),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 }, // Increased to 100MB
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {

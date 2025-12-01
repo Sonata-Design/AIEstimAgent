@@ -11,7 +11,8 @@ export async function apiRequest(
   url: string,
   method: string,
   data?: any,
-  isFormData: boolean = false
+  isFormData: boolean = false,
+  onProgress?: (progress: number) => void
 ): Promise<any> {
   const options: RequestInit = {
     method,
@@ -30,6 +31,47 @@ export async function apiRequest(
     }
   }
 
+  // Use XMLHttpRequest for upload progress tracking on file uploads
+  if (isFormData && onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = (e.loaded / e.total) * 100;
+          onProgress(percentComplete);
+        }
+      });
+
+      xhr.addEventListener('load', async () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response);
+          } catch {
+            resolve(xhr.responseText);
+          }
+        } else {
+          reject(new Error(`${xhr.status}: ${xhr.statusText}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('Upload failed'));
+      });
+
+      xhr.addEventListener('abort', () => {
+        reject(new Error('Upload aborted'));
+      });
+
+      xhr.open(method, url, true);
+      xhr.withCredentials = true;
+      xhr.send(data as any);
+    });
+  }
+
+  // Regular fetch for non-file requests
   const res = await fetch(url, options);
 
   await throwIfResNotOk(res);

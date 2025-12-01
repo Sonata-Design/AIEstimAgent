@@ -403,11 +403,20 @@ export default function Dashboard() {
       const uploadStart2 = performance.now();
       
       const [uploadResult, projectToUse] = await Promise.all([
-        // Upload file
+        // Upload file with progress tracking
         (async () => {
           const uploadFormData = new FormData();
           uploadFormData.append('file', optimizedFile);
-          return apiRequest(createApiUrl('/api/upload'), 'POST', uploadFormData, true);
+          return apiRequest(
+            createApiUrl('/api/upload'), 
+            'POST', 
+            uploadFormData, 
+            true,
+            (progress) => {
+              console.log(`[Upload] Progress: ${progress.toFixed(1)}%`);
+              setUploadProgress(`${progress.toFixed(0)}%`);
+            }
+          );
         })(),
         // Create project in parallel
         currentProject ? Promise.resolve(currentProject) : createNewProject(file.name)
