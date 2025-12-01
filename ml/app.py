@@ -1007,80 +1007,100 @@ async def analyze(
         }
         errors: Dict[str, str] = {}
 
-        # Run room detection
-        if detect_rooms:
-            if not ROOM_MODEL_ID:
-                errors["rooms"] = "rooms model not configured"
-            else:
-                try:
-                    raw = _infer_image(temp_path, model_id=ROOM_MODEL_ID, api_key=ROOM_API_KEY, **infer_kwargs)
-                    roboflow_rooms = _normalize_predictions(raw, img_w, img_h, scale=scale)
+        # Run all model inferences in parallel for speed
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        
+        def run_room_detection():
+            if not detect_rooms or not ROOM_MODEL_ID:
+                return None
+            try:
+                raw = _infer_image(temp_path, model_id=ROOM_MODEL_ID, api_key=ROOM_API_KEY, **infer_kwargs)
+                roboflow_rooms = _normalize_predictions(raw, img_w, img_h, scale=scale)
+                
+                # Use custom room model as fallback only if Roboflow returns no results
+                if not roboflow_rooms and CUSTOM_ROOM_MODEL:
+                    print("[ML] Roboflow returned no rooms, using custom room model as fallback")
+                    roboflow_rooms = _run_custom_room_model(
+                        temp_path,
+                        img_w,
+                        img_h,
+                        confidence=confidence or 0.3,
+                        scale=scale
+                    )
+                    print(f"[ML] Custom room model fallback detected {len(roboflow_rooms)} rooms")
+                
+                return ("rooms", roboflow_rooms, None)
+            except Exception as e:
+                return ("rooms", None, str(e))
+        
+        def run_wall_detection():
+            if not detect_walls or not WALL_MODEL_ID:
+                return None
+            try:
+                raw = _infer_image(temp_path, model_id=WALL_MODEL_ID, api_key=WALL_API_KEY, **infer_kwargs)
+                walls = _normalize_predictions(raw, img_w, img_h, scale=scale)
+                return ("walls", walls, None)
+            except Exception as e:
+                return ("walls", None, str(e))
+        
+        def run_door_window_detection():
+            if not detect_doors_windows or not DOORWINDOW_MODEL_ID:
+                return None
+            try:
+                # Run Roboflow model
+                raw = _infer_image(temp_path, model_id=DOORWINDOW_MODEL_ID, api_key=DOORWINDOW_API_KEY, **infer_kwargs)
+                # Filter to only include door and window classes
+                roboflow_preds = _normalize_predictions(raw, img_w, img_h, filter_classes=["door", "window", "Door", "Window"], scale=scale)
+                
+                # If custom YOLO model is available, run ensemble learning
+                if CUSTOM_WINDOW_MODEL:
+                    print("[ML] Running ensemble learning for door/window detection")
+                    # Run custom model
+                    custom_preds = _run_custom_yolo_model(
+                        temp_path,
+                        img_w,
+                        img_h,
+                        confidence=confidence or 0.3,
+                        scale=scale
+                    )
                     
-                    # Use custom room model as fallback only if Roboflow returns no results
-                    if not roboflow_rooms and CUSTOM_ROOM_MODEL:
-                        print("[ML] Roboflow returned no rooms, using custom room model as fallback")
-                        roboflow_rooms = _run_custom_room_model(
-                            temp_path,
-                            img_w,
-                            img_h,
-                            confidence=confidence or 0.3,
-                            scale=scale
-                        )
-                        print(f"[ML] Custom room model fallback detected {len(roboflow_rooms)} rooms")
-                    
-                    results["predictions"]["rooms"] = roboflow_rooms
-                except Exception as e:
-                    errors["rooms"] = str(e)
-
-        # Run wall detection
-        if detect_walls:
-            if not WALL_MODEL_ID:
-                errors["walls"] = "walls model not configured"
-            else:
-                try:
-                    raw = _infer_image(temp_path, model_id=WALL_MODEL_ID, api_key=WALL_API_KEY, **infer_kwargs)
-                    results["predictions"]["walls"] = _normalize_predictions(raw, img_w, img_h, scale=scale)
-                except Exception as e:
-                    errors["walls"] = str(e)
-
-        # Run door/window detection with ensemble learning
-        if detect_doors_windows:
-            if not DOORWINDOW_MODEL_ID:
-                errors["openings"] = "doors/windows model not configured"
-            else:
-                try:
-                    # Run Roboflow model
-                    raw = _infer_image(temp_path, model_id=DOORWINDOW_MODEL_ID, api_key=DOORWINDOW_API_KEY, **infer_kwargs)
-                    # Filter to only include door and window classes
-                    roboflow_preds = _normalize_predictions(raw, img_w, img_h, filter_classes=["door", "window", "Door", "Window"], scale=scale)
-                    
-                    # If custom YOLO model is available, run ensemble learning
-                    if CUSTOM_WINDOW_MODEL:
-                        print("[ML] Running ensemble learning for door/window detection")
-                        # Run custom model
-                        custom_preds = _run_custom_yolo_model(
-                            temp_path,
-                            img_w,
-                            img_h,
-                            confidence=confidence or 0.3,
-                            scale=scale
-                        )
-                        
-                        # Combine predictions using ensemble strategy
-                        door_window_preds = _ensemble_door_window_predictions(
-                            roboflow_preds,
-                            custom_preds,
-                            iou_threshold=0.4
-                        )
-                        print(f"[ML] Ensemble result: {len(door_window_preds)} total detections")
-                    else:
-                        # No custom model - use Roboflow only
-                        door_window_preds = roboflow_preds
-                        print(f"[ML] Using Roboflow only: {len(door_window_preds)} detections")
-                    
-                    results["predictions"]["openings"] = door_window_preds
-                except Exception as e:
-                    errors["openings"] = str(e)
+                    # Combine predictions using ensemble strategy
+                    door_window_preds = _ensemble_door_window_predictions(
+                        roboflow_preds,
+                        custom_preds,
+                        iou_threshold=0.4
+                    )
+                    print(f"[ML] Ensemble result: {len(door_window_preds)} total detections")
+                else:
+                    # No custom model - use Roboflow only
+                    door_window_preds = roboflow_preds
+                    print(f"[ML] Using Roboflow only: {len(door_window_preds)} detections")
+                
+                return ("openings", door_window_preds, None)
+            except Exception as e:
+                return ("openings", None, str(e))
+        
+        # Run all detections in parallel using ThreadPoolExecutor
+        print("[ML] Running parallel model inference...")
+        parallel_start = time.time()
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            room_result = executor.submit(run_room_detection)
+            wall_result = executor.submit(run_wall_detection)
+            door_result = executor.submit(run_door_window_detection)
+            
+            # Collect results
+            for future in [room_result, wall_result, door_result]:
+                result = future.result()
+                if result:
+                    key, predictions, error = result
+                    if error:
+                        errors[key] = error
+                    elif predictions:
+                        results["predictions"][key] = predictions
+        
+        parallel_time = time.time() - parallel_start
+        print(f"[ML] Parallel inference completed in {parallel_time:.2f}s")
 
         if errors:
             results["errors"] = errors
