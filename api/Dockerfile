@@ -7,14 +7,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (including dev for TypeScript compilation)
+RUN npm ci
 
 # Copy application code
 COPY . .
 
-# Build TypeScript
-RUN npm run build
+# Compile TypeScript (API only, no frontend build needed)
+RUN npm run build:api
+
+# Remove dev dependencies for production
+RUN npm ci --only=production
 
 # Expose port (Cloud Run uses PORT env variable)
 ENV PORT=8080
