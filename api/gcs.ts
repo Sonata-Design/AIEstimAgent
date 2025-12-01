@@ -1,12 +1,10 @@
 import { Storage } from "@google-cloud/storage";
 
-// Initialize GCS client with credentials from environment variable
+// Initialize GCS client
+// On Cloud Run, it will use Application Default Credentials automatically
+// No need to pass credentials explicitly
 const storage = new Storage({
   projectId: process.env.GCP_PROJECT_ID || "estimagent",
-  // Use credentials from environment variable if available
-  credentials: process.env.GCS_CREDENTIALS 
-    ? JSON.parse(process.env.GCS_CREDENTIALS)
-    : undefined,
 });
 
 const bucketName = process.env.GCS_BUCKET || "estimagent-uploads";
