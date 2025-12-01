@@ -30,6 +30,7 @@ import { useStore, type Detection as StoreDetection } from "@/store/useStore";
 import { recalculateDimensions } from "@/utils/dimensionCalculator";
 import { toPairs } from "@/utils/geometry";
 import { compressImage, formatFileSize } from "@/utils/imageOptimizer";
+import { uploadToGCS } from "@/utils/gcsUpload";
 import { AnalysisLoading } from "@/components/analysis-loading";
 import { useMeasurementStore } from "@/store/useMeasurementStore";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
@@ -398,25 +399,34 @@ export default function Dashboard() {
       const compressionTime = performance.now() - uploadStart;
       console.log(`[Upload] Compressed: ${originalSize} → ${newSize} (${compressionTime.toFixed(0)}ms)`);
       
-      // Parallel: Create project and upload file simultaneously
-      console.log('[Upload] Starting parallel upload and project creation...');
+      // Parallel: Create project and upload file to GCS simultaneously
+      console.log('[Upload] Starting parallel GCS upload and project creation...');
       const uploadStart2 = performance.now();
       
       const [uploadResult, projectToUse] = await Promise.all([
-        // Upload file with progress tracking
+        // Upload file directly to GCS (much faster!)
         (async () => {
-          const uploadFormData = new FormData();
-          uploadFormData.append('file', optimizedFile);
-          return apiRequest(
-            createApiUrl('/api/upload'), 
-            'POST', 
-            uploadFormData, 
-            true,
-            (progress) => {
-              console.log(`[Upload] Progress: ${progress.toFixed(1)}%`);
+          try {
+            return await uploadToGCS(optimizedFile, (progress) => {
+              console.log(`[Upload] GCS Progress: ${progress.toFixed(1)}%`);
               setUploadProgress(`${progress.toFixed(0)}%`);
-            }
-          );
+            });
+          } catch (error) {
+            console.warn('[Upload] GCS upload failed, falling back to API upload:', error);
+            // Fallback to API upload if GCS fails
+            const uploadFormData = new FormData();
+            uploadFormData.append('file', optimizedFile);
+            return apiRequest(
+              createApiUrl('/api/upload'), 
+              'POST', 
+              uploadFormData, 
+              true,
+              (progress) => {
+                console.log(`[Upload] API Progress: ${progress.toFixed(1)}%`);
+                setUploadProgress(`${progress.toFixed(0)}%`);
+              }
+            );
+          }
         })(),
         // Create project in parallel
         currentProject ? Promise.resolve(currentProject) : createNewProject(file.name)

@@ -161,7 +161,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // --- GENERAL FILE UPLOAD ENDPOINT ---
+  // --- GET SIGNED URL FOR DIRECT GCS UPLOAD ---
+  app.post("/api/get-signed-url", async (req, res) => {
+    try {
+      const { filename, contentType } = req.body;
+      
+      if (!filename) {
+        return res.status(400).json({ error: "Filename required" });
+      }
+
+      console.log('[API] Generating signed URL for:', filename);
+      
+      // Import GCS utilities
+      const { generateSignedUploadUrl } = await import("./gcs.js");
+      
+      const { signedUrl, publicUrl } = await generateSignedUploadUrl(
+        filename,
+        contentType || "application/octet-stream"
+      );
+
+      return res.json({
+        signed_url: signedUrl,
+        public_url: publicUrl,
+        filename,
+      });
+    } catch (error: any) {
+      console.error('[API] Error generating signed URL:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- GENERAL FILE UPLOAD ENDPOINT (kept for backward compatibility) ---
   app.post("/api/upload", diskUpload.single("file"), async (req: MulterRequest, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
