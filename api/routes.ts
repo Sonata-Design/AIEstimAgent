@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Always use absolute URL
     const baseUrl = process.env.NODE_ENV === 'production' 
-      ? (process.env.API_BASE_URL || 'https://aiestimagent-api.onrender.com')
+      ? (process.env.API_BASE_URL || 'https://estimagent-api-v2-558363734671.us-central1.run.app')
       : 'http://localhost:5001';
     const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
     
